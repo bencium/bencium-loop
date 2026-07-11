@@ -79,6 +79,39 @@ Short answer: describe your idea in the chat, then run `/bencium-init` in the em
 | `/bencium-rollback "reason"` | Run the configured rollback command and log the reason. |
 | `/bencium-retro` | Postmortem after a failure. Proposes memory and acceptance updates. |
 
+## Accelerated mode (Claude Code only, opt-in)
+
+The harness runs the same way everywhere: one step at a time, each gated. On **Claude Code**
+there is now an optional faster gear for the slow, repetitive parts. It uses *dynamic workflows* —
+a small program that fans work out across many short-lived helper agents at once instead of walking a
+list one item at a time. Four places can use it, all opt-in:
+
+- **Verify** — check every acceptance item in parallel, then have a *second, skeptical* agent try to
+  knock down each pass (catching tests that were quietly weakened to go green).
+- **Deploy smoke test** — hit each deployed check against the live URL at the same time.
+- **Set-up scan** — on a big existing codebase, survey it from several angles at once.
+- **Batch build** — when one task is really N independent, mechanical edits (say a rename across many
+  files), build them side by side, each in its own isolated copy of the repo, each still test-first.
+
+**Two things to understand about it — this is why it stays optional, never the default:**
+
+1. **Workflows are a Claude Code feature only.** The harness is plain prompt files that also run on
+   Codex, opencode, and copy-paste into claude.ai / ChatGPT / Gemini. A workflow program runs on
+   *none* of those. So every accelerated step is built to quietly fall back to the normal
+   one-at-a-time path when the workflow runtime isn't there — it can only ever be a speed-up, never
+   the thing the harness depends on. Detection is automatic: if there's no workflow tool, it's not
+   Claude Code, and the serial path runs.
+2. **Workflows fan out to dozens of agents and are opt-in by design.** A single run can spin up many
+   helper agents (up to 16 working at once, 1000 over a whole run) — that is real token cost. So the
+   harness never starts one on its own. You ask for it per run ("verify with a workflow", or an
+   `ultracode` request); otherwise you get the normal capped path. This also keeps the harness's hard
+   *3-agent limit* intact for everyday work — the workflow is a separate, deliberate escalation, not a
+   loosening of that rule.
+
+Nothing about your project changes if you never use it. The audit trail is identical (the result
+records just note whether a step ran `serial` or `workflow`, and how many agents it used), and a repo
+set up by an older version keeps working.
+
 ## Use it in browser and desktop AI tools (not just the terminal)
 
 The harness is not only for terminal coding tools. It is plain prompt files and

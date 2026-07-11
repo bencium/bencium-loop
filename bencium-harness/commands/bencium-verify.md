@@ -1,6 +1,6 @@
 ---
 description: Walk ACCEPTANCE.md against actual repo state, report PASS/FAIL/SKIP with evidence
-allowed-tools: Read, Edit, Bash, Glob, Grep, Task
+allowed-tools: Read, Edit, Bash, Glob, Grep, Task, Workflow
 ---
 
 You are running `/bencium-verify` — the verification gate.
@@ -74,6 +74,22 @@ How:
 3. Reconcile: where the subagent's verdict is stricter than yours, take the stricter one unless you have concrete contradicting evidence. Surface any disagreement in the report (`builder said PASS, independent reviewer said FAIL — <reason>`).
 
 The subagent is advisory to the gate, not a separate gate — its FAILs flip the corresponding rows to FAIL in your report.
+
+## Step 3c: Accelerated path — workflow fan-out (opt-in, Claude Code only)
+
+This is a faster, wider version of Steps 3 + 3b for long ACCEPTANCE lists. It is **purely additive** — the serial walk above stays the default and the portable path. Two gates must **both** be true before you use it; if either is false, run Steps 3/3b serially and skip this section entirely:
+
+1. **Runtime gate.** You must have a `Workflow` tool available. It exists only in Claude Code. On Codex, opencode, or a copy-paste chat surface there is no `Workflow` tool — in that case do **not** try to emulate this with extra `Task` subagents (that would break the 3-agent cap); just run the serial path.
+2. **Opt-in gate.** The user asked for it this run (e.g. "verify with a workflow", a `workflow` argument, or "ultracode"). Never invoke it automatically — it spawns many agents and costs tokens.
+
+When both hold:
+
+1. Collect the unchecked **local** rows (the same set Step 3 walks — never `[deployed]` rows; those stay deferred to SMOKE). Gather the `git diff` and the Step 2 `verify.cmd` output.
+2. Invoke the `Workflow` tool with the scaffolded script (prefer the project copy `.claude/workflows/verify-acceptance.mjs`; fall back to `${CLAUDE_PLUGIN_ROOT}/workflows/verify-acceptance.mjs`). Pass `args: { rows: [{ text }], diff, verifyOutput }`. The workflow evaluates each row (Haiku) and adversarially re-checks each PASS with a fresh skeptic (Sonnet) — Step 3a's gamed-pass hunt, at scale.
+3. Fold the returned `items` into your Step 4 report exactly as if you had walked them serially. A row the workflow marks `fail` (including a refuted PASS) is FAIL — take the stricter verdict, same reconciliation rule as Step 3b.
+4. Record that the workflow path ran: set `mode: "workflow"` and `agents: <count>` in the Step 8 marker (see below). If you ran serially, set `mode: "serial"` and omit or zero `agents`.
+
+The workflow is advisory to the gate in exactly the way the Step 3b subagent is — it does not deploy, it does not check off `[deployed]` rows, and its output flows into the same marker schema.
 
 ## Step 4: Report
 
@@ -169,6 +185,8 @@ Schema:
   "version": 1,
   "ts": "<ISO8601 UTC>",
   "phase": "test",
+  "mode": "serial" | "workflow",
+  "agents": <int>,
   "result": "pass" | "fail" | "partial",
   "hard_checks": [
     { "name": "<verify.cmd entry>", "status": "pass" | "fail", "evidence": "<one-line>", "exit_code": <int> }
@@ -193,6 +211,7 @@ Rules for populating:
 - `evidence` strings come from the same prose report in Step 4 — one line each, no markdown.
 - `hard_checks` is an empty array if `.harness/config.yaml` has no `verify.cmd` entries.
 - `deferred_to_smoke` is an empty array if no `[deployed]`-tagged rows exist.
+- `mode` / `agents` are **optional, additive** fields (schema stays `version: 1`). Set `mode: "workflow"` and `agents` to the count only when Step 3c ran; otherwise `mode: "serial"` and `agents: 0`. Consumers that predate these fields ignore them — the serial path is byte-for-byte the old behavior.
 
 ## Hard rules
 
@@ -200,6 +219,7 @@ Rules for populating:
 - Never invent results. If you can't verify a check, mark it SKIP with a reason — don't guess.
 - **A gamed pass is a FAIL.** If Step 3a finds a weakened/skipped/hardcoded test or a narrowed `verify.cmd`, the backed check is FAIL regardless of the green result. Green is necessary, not sufficient — the test must still assert the real behavior.
 - **Prefer separation on self-authored work.** If you verified a feature you also built in this session, run Step 3b — a same-context self-grade skews positive. When the independent reviewer is stricter, take the stricter verdict unless you can refute it with concrete evidence. The 3-agent cap is hard; one verifier subagent is the norm.
+- **The 3-agent cap governs `Task` subagents.** Workflow mode (Step 3c — Claude Code only, explicit opt-in) is a separate escalation and is not bound by this cap. It is additive: when the `Workflow` tool is absent or the user did not opt in, the serial path runs unchanged.
 - **Never evaluate `[deployed]`-tagged rows locally.** They are SKIP with reason `awaiting post-deploy smoke` until `/bencium-deploy` walks them against `deploy.url`. Marking one `[x]` from local state is a false confirmation — the exact failure mode this gate was built to prevent.
 - Do not modify source code during verify. Only update ACCEPTANCE.md checkboxes and .harness/memory.md.
 - Never skip the TEST banner or the memory confirmation line — they're how the user knows where they are in the loop.

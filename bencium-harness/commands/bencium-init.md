@@ -1,6 +1,6 @@
 ---
 description: Initialize the build harness in this repo (greenfield or brownfield, auto-detected). 5-question interview, single LLM pass, ~60s.
-allowed-tools: Bash, Read, Write, Glob, Task
+allowed-tools: Bash, Read, Write, Glob, Task, Workflow
 ---
 
 You are running `/bencium-init` — the kickoff command for the **bencium-harness**.
@@ -38,6 +38,10 @@ In a **single message** with three parallel `Task` tool calls, spawn three Explo
 Synthesize the three reports into one summary (3-5 bullets total) before continuing.
 
 If a fourth area genuinely matters for this repo (e.g., infrastructure-as-code, mobile platform code), **trim one of the three rather than spawn a fourth** — the 3-agent cap is hard. Print the trim decision inline: `[bencium-init] folding <X> scope into <Y> agent to honor 3-agent cap`.
+
+### Accelerated wider sweep (opt-in, Claude Code only)
+
+For a genuinely large repo the 3-agent sweep can leave blind spots. Purely additive — the 3-agent path above stays the default. Use this only when **both** gates hold, else run the 3-agent path: (a) a `Workflow` tool is available (Claude Code only — absent on Codex/opencode/paste; do not emulate with `Task`), and (b) the user opted in. When both hold, invoke the `Workflow` tool with `.claude/workflows/brownfield-scan.mjs` (fall back to `${CLAUDE_PLUGIN_ROOT}/workflows/brownfield-scan.mjs`); it sweeps more lenses in parallel and synthesizes one brief. Use its `summary` in place of the 3-agent synthesis. This is read-only discovery — it changes nothing about the interview or generation that follows.
 
 ### Confirm
 
@@ -83,6 +87,14 @@ Using the 5 answers, generate ALL of these files in one pass. Use the templates 
   ```
   This file is ephemeral session state — recommend adding `.harness/state` to `.gitignore`.
 
+**Optional: scaffold the accelerated workflow scripts (Claude Code only).** These power the opt-in workflow paths in `/bencium-verify`, `/bencium-deploy`, and this command's wider sweep. Copy them into the project only when a `Workflow` tool is available (i.e. you are in Claude Code) — on any other runtime skip this, the scripts are inert there and the commands fall back to the plugin copy or the serial path:
+
+```bash
+mkdir -p .claude/workflows && cp "${CLAUDE_PLUGIN_ROOT}/workflows/"*.mjs .claude/workflows/ 2>/dev/null || true
+```
+
+This is a convenience, not a requirement — a project with no `.claude/workflows/` still gets workflow mode on Claude Code because the commands fall back to `${CLAUDE_PLUGIN_ROOT}/workflows/`. Recommend committing these so teammates on Claude Code share them.
+
 ## Step 5: Summary
 
 Print:
@@ -113,3 +125,4 @@ Next: /bencium-next to pick the first task. It will plan first and wait for your
 - Do not invent features the user didn't mention.
 - Do not add dependencies, run installs, or modify any source code.
 - **Brownfield discovery uses Explore subagents only on the large-repo path.** Never spawn subagents for greenfield init or a small brownfield repo — they add latency for no signal. The 3-agent cap is hard; trim scope rather than exceed it.
+- **The 3-agent cap governs `Task` subagents.** The accelerated wider sweep and the scaffolded workflow scripts are Claude-Code-only, opt-in escalations — separate from the cap and never automatic. Everything the harness generates works identically without them; they only ever speed the read-only discovery and verification surfaces.

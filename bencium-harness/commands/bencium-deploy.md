@@ -1,6 +1,6 @@
 ---
 description: Verify → deploy → health check → log. Refuses deploy if /bencium-verify fails.
-allowed-tools: Read, Bash, Edit
+allowed-tools: Read, Bash, Edit, Workflow
 ---
 
 You are running `/bencium-deploy` — the gated deploy command.
@@ -98,7 +98,10 @@ Print the SMOKE banner (bright magenta) — see `phase-banner` skill:
 
 1. Re-load `ACCEPTANCE.md`.
 2. Collect every unchecked row tagged `[deployed]` (either as the checkbox marker `- [deployed]` or as a trailing `[deployed]` tag). If there are none, print `No [deployed] rows in ACCEPTANCE.md — skipping smoke. Consider adding deployed-env checks (especially for any feature where local pass != deployed pass).` and continue to Step 6.
-3. For each `[deployed]` row, evaluate against the live URL (`deploy.url`):
+
+**Accelerated path (opt-in, Claude Code only).** For a long `[deployed]` list you may fan the walk out — purely additive, the serial walk in step 3 stays the default and the portable path. Use it only when **both** gates hold, else run step 3 serially: (a) a `Workflow` tool is available (Claude Code only — absent on Codex/opencode/paste surfaces; do not emulate with `Task`), and (b) the user opted in this run. When both hold, invoke the `Workflow` tool with `.claude/workflows/smoke-deployed.mjs` (fall back to `${CLAUDE_PLUGIN_ROOT}/workflows/smoke-deployed.mjs`), passing `args: { rows: [{ text }], deployUrl: <deploy.url> }`. Fold the returned `rows` into the step-4 report exactly as if walked serially, and set `mode: "workflow"` + `agents: <count>` in the Step 5.5 marker. Otherwise `mode: "serial"`, `agents: 0`.
+
+3. For each `[deployed]` row (serial path), evaluate against the live URL (`deploy.url`):
    - Substitute `{{deploy_url}}` in the row text with the configured value.
    - Use the same evidence rules as `/bencium-verify` Step 3: curl/fetch against the deployed URL, parse response, assert. For UI behavior (e.g. "upload works"), this is a real HTTP call to the deployed endpoint with a representative payload — not a localhost call, not a unit test.
    - Classify PASS / FAIL with evidence. SKIP is only acceptable if the row genuinely cannot be evaluated (missing fixture, etc.); record the reason explicitly.
@@ -135,6 +138,8 @@ Result: 2 PASS, 1 FAIL
   "version": 1,
   "ts": "<ISO8601 UTC>",
   "phase": "smoke",
+  "mode": "serial" | "workflow",
+  "agents": <int>,
   "deploy_url": "<from .harness/config.yaml deploy.url>",
   "deployed_sha": "<git rev-parse HEAD>",
   "result": "pass" | "fail",
@@ -144,7 +149,7 @@ Result: 2 PASS, 1 FAIL
 }
 ```
 
-Rules: `result` is `pass` only if every row in `rows` is `pass`. Empty `rows` array if no `[deployed]` tags exist (then `result` is `pass` by definition — there was nothing to fail). On the FAIL branch (Step 5.5 step 5), emit the marker after the prose failure summary and before stopping — the marker is the structured record consumers parse.
+Rules: `result` is `pass` only if every row in `rows` is `pass`. Empty `rows` array if no `[deployed]` tags exist (then `result` is `pass` by definition — there was nothing to fail). On the FAIL branch (Step 5.5 step 5), emit the marker after the prose failure summary and before stopping — the marker is the structured record consumers parse. `mode` / `agents` are **optional, additive** fields (schema stays `version: 1`): `mode: "workflow"` + the agent count only when the accelerated path ran, else `mode: "serial"` + `agents: 0`. Consumers that predate them ignore them.
 
 ## Step 6: Success
 
@@ -204,5 +209,6 @@ Emit the deploy marker as the **very last** output, after the next-moves templat
 - **Never skip Step 5.5 SMOKE when `[deployed]` rows exist.** A passing health check + skipped smoke is the exact false-confirmation that this command was rewritten to prevent. If `deploy.url` is missing, refuse to deploy (Step 1) rather than deploy without a deployed-env check.
 - **Never mark a `[deployed]` ACCEPTANCE row `[x]` from local state.** Only SMOKE may flip them, and only with live-URL evidence.
 - Never auto-rollback without asking. The user decides whether to roll back or fix forward.
+- **The accelerated SMOKE path is Claude-Code-only and opt-in.** It requires a `Workflow` tool (absent everywhere except Claude Code) and an explicit request; otherwise the serial walk runs unchanged. It is a separate escalation, not bound by the 3-agent cap, and never bypasses a gate — it still evaluates every `[deployed]` row against the live URL and only SMOKE flips those rows.
 - **The smoke and deploy marker blocks MUST be the last output of their respective steps.** Nothing after the closing fence. Downstream consumers locate them as trailing fenced JSON.
 - **Markers report state, not opinion.** Schema version is `1`; future changes bump the integer.
