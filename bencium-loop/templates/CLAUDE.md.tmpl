@@ -1,0 +1,36 @@
+# {{product_name}}
+
+> {{killer_feature_one_liner}}
+
+## Read first (every session)
+
+1. `.harness/memory.md` — hot context, decisions, recent deploys
+2. `.harness/conventions.md` — code-quality rules you must follow
+3. `.harness/rules.md` — non-negotiables
+4. `tasks.md ## Now` — current work
+5. `ACCEPTANCE.md` — quality gates (unchecked items only)
+
+If `.harness/` is missing, this is not a bencium-loop project — fall back to `PRD.md` and `ARCHITECTURE.md` only.
+
+## Stack
+
+{{stack}}
+
+## Run
+
+(filled by user from `.harness/config.yaml`)
+
+## Deploy
+
+`{{deploy_cmd}}` — health: `{{deploy_health}}`. **Never deploy without running `/bencium-verify` first.** `/bencium-deploy` enforces this; manual deploys must not skip it.
+
+## How the agent should work in this repo
+
+- Plan before code. Show the plan inline and wait for explicit approval.
+- One responsibility per file. Refactor before extending a file past 500 lines.
+- Log architectural choices via `/bencium-decide` (or append to `.harness/archive/` manually if the plugin isn't installed).
+- Failed verify or deploy → run `/bencium-retro` (or write a postmortem to `.harness/archive/NNNN-retro-*.md`).
+
+## When the bencium-loop plugin is installed
+
+Slash commands available: `/bencium-init`, `/bencium-next`, `/bencium-verify`, `/bencium-deploy`, `/bencium-decide`, `/bencium-feature`, `/bencium-promote`, `/bencium-retro`, `/bencium-rollback`. Skills auto-load context and watch for architectural decisions.

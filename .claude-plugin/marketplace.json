@@ -1,23 +1,23 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "bencium-harness-local",
-  "description": "Local-dev marketplace for the bencium-harness plugin",
+  "name": "bencium-loop-local",
+  "description": "Local-dev marketplace for the bencium-loop plugin",
   "owner": {
     "name": "bencium.io",
     "url": "https://bencium.io"
   },
   "plugins": [
     {
-      "name": "bencium-harness",
-      "source": "./bencium-harness",
-      "description": "Lightweight AI-assisted build harness: scaffold + tasks + acceptance + living roadmap + decision log + mandatory plan/spec gate + verify gate + deploy/rollback. Six-phase loop with ANSI-colored phase banners and explicit memory confirmation.",
-      "version": "0.8.0",
+      "name": "bencium-loop",
+      "source": "./bencium-loop",
+      "description": "Lightweight AI-assisted build loop: scaffold + tasks + acceptance + living roadmap + decision log + mandatory plan/spec gate + verify gate + deploy/rollback. Six-phase loop with ANSI-colored phase banners and explicit memory confirmation.",
+      "version": "0.9.0",
       "author": {
         "name": "Bencium",
         "url": "https://bencium.io"
       },
       "category": "productivity",
-      "keywords": ["harness", "scaffold", "context-engineering", "build-loop", "memory", "verification"]
+      "keywords": ["build-loop", "scaffold", "context-engineering", "memory", "verification"]
     }
   ]
 }

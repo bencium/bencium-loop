@@ -1,16 +1,16 @@
-# Using bencium-harness with Codex
+# Using bencium-loop with Codex
 
-The harness is a Claude Code plugin, but the commands are plain prompt files, so they work in Codex as skills. A sync script generates the Codex adapter from this source tree — the source stays authoritative, Codex gets a clean generated copy.
+The loop is a Claude Code plugin, but the commands are plain prompt files, so they work in Codex as skills. A sync script generates the Codex adapter from this source tree — the source stays authoritative, Codex gets a clean generated copy.
 
 ## Install or update
 
 ```bash
-node bencium-harness/scripts/sync-codex-adapter.mjs
+node bencium-loop/scripts/sync-codex-adapter.mjs
 ```
 
 Then restart Codex so it reloads the plugin index.
 
-Run it again after any edit to this repo. It reads the version from `bencium-harness/.claude-plugin/plugin.json`, discovers every file in `commands/` and `skills/` automatically, and writes both the local marketplace copy and the plugin cache copy under `$CODEX_HOME` (`~/.codex` unless you set it). It backs up `config.toml` before touching it and prints the backup path.
+Run it again after any edit to this repo. It reads the version from `bencium-loop/.claude-plugin/plugin.json`, discovers every file in `commands/` and `skills/` automatically, and writes both the local marketplace copy and the plugin cache copy under `$CODEX_HOME` (`~/.codex` unless you set it). It backs up `config.toml` before touching it and prints the backup path.
 
 ## What the adapter changes
 
@@ -19,7 +19,7 @@ Each `commands/*.md` becomes a Codex skill of the same name, with the original c
 - `${CLAUDE_PLUGIN_ROOT}` resolves to this source tree.
 - `AskUserQuestion` (Claude Code only) becomes an inline question.
 - Claude's subagents are used only where Codex has an equivalent; otherwise the work happens in the main context.
-- **Accelerated / workflow paths are ignored entirely.** The `Workflow` runtime is Claude Code only. Every accelerated step in the harness has a serial fallback, and on Codex that fallback is the only path — never emulate a workflow with extra subagents.
+- **Accelerated / workflow paths are ignored entirely.** The `Workflow` runtime is Claude Code only. Every accelerated step in the loop has a serial fallback, and on Codex that fallback is the only path — never emulate a workflow with extra subagents.
 
 The helper skills (`context-loader`, `decision-watcher`, `phase-banner`, `invariants`, `markers`, `accelerated-mode`) are copied with a `bencium-` prefix so they don't collide with anything else installed.
 

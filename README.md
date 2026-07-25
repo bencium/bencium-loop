@@ -1,4 +1,4 @@
-# bencium-harness
+# bencium-loop
 
 > A plugin for agentic coding tools like codex and opencode. It gives AI agents steady context, an acceptance checklist that must pass before anything ships, and a memory that survives a context reset (when the chat history is wiped between sessions).
 
@@ -16,7 +16,7 @@ A workflow without checkpoints forgets itself — and invisible work becomes inv
 
 ## How it compares
 
-| | bencium-harness | BMAD-method | Just a context file |
+| | bencium-loop | BMAD-method | Just a context file |
 |---|---|---|---|
 | Setup time | ~60 sec | Multi-phase interview | Instant |
 | Memory model | Tiered markdown (`memory.md` + archive) | Heavy generated docs | Static file |
@@ -78,7 +78,7 @@ new-project/
 
 Existing projects (ones that already have code) are auto-detected — `/bencium-init` scans the code and produces a retrospective product spec and architecture without overwriting anything.
 
-## How to start a new project with bencium-harness from a vague idea
+## How to start a new project with bencium-loop from a vague idea
 
 Short answer: describe your idea in the chat, then run `/bencium-init` in the empty project folder. That one command runs a 5-question interview and generates the entire scaffold in a single ~60s pass.
 
@@ -88,7 +88,7 @@ Short answer: describe your idea in the chat, then run `/bencium-init` in the em
 
 | Command | What it does |
 |---|---|
-| `/bencium-init` | Scaffold the harness in the current repo (new or existing project, auto-detected). Also writes `.harness/conventions.md`. |
+| `/bencium-init` | Scaffold the loop in the current repo (new or existing project, auto-detected). Also writes `.harness/conventions.md`. |
 | `/bencium-next` | **Two-phase:** plan/spec (read-only, waits for your approval) → build (executes). The plan IS the spec. For UI tasks it first offers an optional **prototype detour** — a throwaway one-route preview to eyeball look-and-feel before the spec is written. |
 | `/bencium-feature "desc"` | Append a feature to `tasks.md ## Roadmap`. |
 | `/bencium-promote` | Move Roadmap items into Now, or demote stale memory entries to archive. |
@@ -100,10 +100,10 @@ Short answer: describe your idea in the chat, then run `/bencium-init` in the em
 
 ## The three gates are enforced, not just asked for
 
-The harness's three loudest promises used to be sentences in a prompt — the agent was asked to
+The loop's three loudest promises used to be sentences in a prompt — the agent was asked to
 respect them, and usually did. On Claude Code they are hooks:
 
-- **Plan before code.** While the harness is in the PLAN phase, an attempt to edit a file is
+- **Plan before code.** While the loop is in the PLAN phase, an attempt to edit a file is
   refused. The throwaway prototype detour is the one exception, because seeing pixels before
   committing to a spec is the point of it.
 - **Verify before deploy.** Your configured deploy command is refused unless the last verify
@@ -113,7 +113,7 @@ respect them, and usually did. On Claude Code they are hooks:
   them.
 
 **Tip after installing or updating.** The hook only registers when the plugin loads, so run
-`/plugin update bencium-harness@bencium-harness-local` (or your marketplace name) and restart
+`/plugin update bencium-loop@bencium-loop-local` (or your marketplace name) and restart
 Claude Code. Then prove it actually works, in about a minute.
 
 Make a throwaway repo — nothing here touches any real project:
@@ -143,7 +143,7 @@ commands still tell the agent to stop, and nothing physically blocks it.
 
 ## Accelerated mode (Claude Code only, opt-in)
 
-The harness runs the same way everywhere: one step at a time, each gated. On **Claude Code**
+The loop runs the same way everywhere: one step at a time, each gated. On **Claude Code**
 there is now an optional faster gear for the slow, repetitive parts. It uses *dynamic workflows* —
 a small program that fans work out across many short-lived helper agents at once instead of walking a
 list one item at a time. Three places can use it, all opt-in, and **all three only read** — none of
@@ -161,16 +161,16 @@ If a task is really N mechanical edits, split it at the plan gate and do them on
 
 **Two things to understand about it — this is why it stays optional, never the default:**
 
-1. **Workflows are a Claude Code feature only.** The harness is plain prompt files that also run on
+1. **Workflows are a Claude Code feature only.** The loop is plain prompt files that also run on
    Codex, opencode, and copy-paste into claude.ai / ChatGPT / Gemini. A workflow program runs on
    *none* of those. So every accelerated step is built to quietly fall back to the normal
    one-at-a-time path when the workflow runtime isn't there — it can only ever be a speed-up, never
-   the thing the harness depends on. Detection is automatic: if there's no workflow tool, it's not
+   the thing the loop depends on. Detection is automatic: if there's no workflow tool, it's not
    Claude Code, and the serial path runs.
 2. **Workflows fan out to dozens of agents and are opt-in by design.** A single run can spin up many
    helper agents (up to 16 working at once, 1000 over a whole run) — that is real token cost. So the
-   harness never starts one on its own. You ask for it per run ("verify with a workflow", or an
-   `ultracode` request); otherwise you get the normal capped path. This also keeps the harness's hard
+   loop never starts one on its own. You ask for it per run ("verify with a workflow", or an
+   `ultracode` request); otherwise you get the normal capped path. This also keeps the loop's hard
    *3-agent limit* intact for everyday work — the workflow is a separate, deliberate escalation, not a
    loosening of that rule.
 
@@ -180,7 +180,7 @@ set up by an older version keeps working.
 
 ## Use it in browser and desktop AI tools (not just the terminal)
 
-The harness is not only for terminal coding tools. It is plain prompt files and
+The loop is not only for terminal coding tools. It is plain prompt files and
 templates in a public repo, so any AI that can read a web link can set it up for
 you — claude.ai, the Codex app, ChatGPT, Gemini, and similar tools.
 
@@ -190,28 +190,28 @@ hand you the files to paste in (everything else). No install, no plugin.
 
 Copy a prompt below into your AI tool and send it.
 
-### 1. Install — point the tool at the repo and let it set up the harness
+### 1. Install — point the tool at the repo and let it set up the loop
 
 ```text
-Read the bencium-harness repository at https://github.com/bencium/bencium-harness
+Read the bencium-loop repository at https://github.com/bencium/bencium-loop
 
-It is a build-loop "harness": command prompts live in bencium-harness/commands/
-and file templates live in bencium-harness/templates/. I want to use it on MY
+It is a build loop: command prompts live in bencium-loop/commands/
+and file templates live in bencium-loop/templates/. I want to use it on MY
 project.
 
 Do this in order:
-1. Fetch and read every file in bencium-harness/templates/ and
-   bencium-harness/commands/ so you understand the loop.
+1. Fetch and read every file in bencium-loop/templates/ and
+   bencium-loop/commands/ so you understand the loop.
 2. Interview me with the 5 setup questions from the bencium-init command:
    product (one sentence), who it's for, the one killer feature, the stack, and
    the deploy target (plus a health-check URL or command). Ask them, then wait.
-3. From my answers, create the harness in my project: tasks.md, ACCEPTANCE.md,
+3. From my answers, create the loop in my project: tasks.md, ACCEPTANCE.md,
    PRD.md, ARCHITECTURE.md, CLAUDE.md, and a .harness/ folder containing
    config.yaml, memory.md, conventions.md, rules.md, glossary.md, constraints.md,
    and an empty archive/ folder — each filled in from the matching template.
 4. From now on, when I type a command name like "bencium-next" or
    "bencium-verify", behave exactly as that command's file in
-   bencium-harness/commands/ tells you to — including the two hard rules:
+   bencium-loop/commands/ tells you to — including the two hard rules:
    never write code before I approve the plan, and never call something done
    without showing evidence.
 
@@ -226,7 +226,7 @@ Browser tools have no memory between chats, so this prompt does by hand what the
 terminal version does automatically (loads your project context back in).
 
 ```text
-Before we continue, load my bencium-harness context from this project:
+Before we continue, load my bencium-loop context from this project:
 - .harness/memory.md — read the "## Session handoff" block first, then the rest
 - .harness/rules.md and .harness/conventions.md
 - the 3 newest files in .harness/archive/

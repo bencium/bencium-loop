@@ -9,7 +9,24 @@ Theme vocabulary (pick one when cutting a release):
 
 ## Unreleased
 
-Answers three structural criticisms that survived the v0.8.0 bug fix — they were about what the harness *is*, not about defects. Theme when cut: **Anchor**.
+Answers three structural criticisms that survived the v0.8.0 bug fix — they were about what the loop *is*, not about defects. Theme when cut: **Anchor**.
+
+### Changed — renamed from `bencium-harness` to `bencium-loop` (v0.9.0)
+
+The project always described itself as a loop — "six-phase loop", "a build loop that no vendor can switch off" — while calling itself a harness. "Harness" is a term of art that only parses for people already deep in agent tooling; "loop" explains itself and is the word the docs were already using to do the actual work.
+
+**Nothing in an existing project changes.** The `.harness/` folder keeps its name and its contents. No migration, no renamed files, no edits to anything already scaffolded.
+
+**Commands are unchanged.** `/bencium-init`, `/bencium-next`, `/bencium-verify` and the rest never contained "harness" — only the plugin namespace did.
+
+What did change: the plugin and marketplace names, the source directory (`bencium-harness/` → `bencium-loop/`), the statusline script (`harness-status.sh` → `loop-status.sh`), the `[bencium-harness]` prefix on blocked-gate messages, and the repo URL. GitHub redirects the old URL, but the plugin name is an install key and does not redirect — reinstall once:
+
+```
+/plugin uninstall bencium-harness@bencium-marketplace
+/plugin install bencium-loop@bencium-marketplace
+```
+
+If you wired the statusline into `~/.claude/settings.json`, update the path to `statusline/loop-status.sh`. Entries below v0.9.0 keep the old name — they describe what actually shipped.
 
 ### Added — two more gates, so the loudest claims are mechanism
 
@@ -25,11 +42,11 @@ Three gates now exist on Claude Code and nowhere else. `INSTALL.md`, `CODEX.md` 
 
 `workflows/batch-build.mjs`, `/bencium-next` Steps 4.1b and 4.1c, and their tests are gone.
 
-It bought throughput on the one part of the loop that was never the bottleneck — the bottleneck is the human reading the plan — and it was the only fan-out that wrote code, which is where three of v0.8.0's four bugs came from, including tasks being ticked while the code sat in unmerged worktrees. That is the signature of a feature added because it was possible rather than because it was needed, so this is the harness's own "strip pieces no longer load-bearing" principle turned on itself.
+It bought throughput on the one part of the loop that was never the bottleneck — the bottleneck is the human reading the plan — and it was the only fan-out that wrote code, which is where three of v0.8.0's four bugs came from, including tasks being ticked while the code sat in unmerged worktrees. That is the signature of a feature added because it was possible rather than because it was needed, so this is the loop's own "strip pieces no longer load-bearing" principle turned on itself.
 
 Every remaining accelerated path (`verify-acceptance`, `smoke-deployed`, `brownfield-scan`) is read-only, which is a cleaner boundary than the one it replaces. Splitting an oversized task into sub-tasks at the PLAN gate stays — that was always the useful half. `/bencium-next` no longer needs the `Workflow` tool, and its build marker no longer carries `mode` / `agents`.
 
-### Added — a feedback loop for the harness's own instructions
+### Added — a feedback loop for bencium-loop's own instructions
 
 Across v0.5.0 → v0.8.0 no command file ever shrank, and nothing would have said when rule count started costing compliance.
 

@@ -1,0 +1,17 @@
+{
+  "name": "bencium-loop",
+  "version": "0.9.0",
+  "description": "Lightweight AI-assisted build loop: scaffold + tasks + acceptance + living roadmap + decision log + mandatory plan/spec gate + verify gate + deploy/rollback. Six-phase loop (roadmap → plan → build → test → reflect → deploy) with ANSI-colored phase banners, .harness/conventions.md for code-quality rules, and explicit memory confirmation after every action.",
+  "author": {
+    "name": "Bencium",
+    "email": "tcsernak@gmail.com"
+  },
+  "homepage": "https://bencium.io",
+  "keywords": [
+    "build-loop",
+    "scaffold",
+    "context-engineering",
+    "memory",
+    "verification"
+  ]
+}

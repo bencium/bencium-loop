@@ -1,4 +1,4 @@
-// Test harness for the workflow scripts in bencium-harness/workflows/.
+// Test harness for the workflow scripts in bencium-loop/workflows/.
 //
 // Those scripts are not importable modules: the Claude Code workflow runtime evaluates
 // each one in a function scope where `args`, `agent`, `parallel`, `pipeline` and `log`
@@ -11,7 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
-const workflowDir = path.join(testDir, "..", "bencium-harness", "workflows");
+const workflowDir = path.join(testDir, "..", "bencium-loop", "workflows");
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 

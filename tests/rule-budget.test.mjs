@@ -1,4 +1,4 @@
-// The feedback loop the harness never had for its own instructions.
+// The feedback loop bencium-loop never had for its own instructions.
 //
 // Across v0.5.0 → v0.8.0 no command file ever shrank: bencium-next.md went 196 → 300 lines,
 // and the fleet reached 53 hard rules. Instruction-following degrades as rule count climbs,
@@ -13,7 +13,7 @@
 // follows every rule in it — only that the surface stopped growing while nobody was looking.
 // A real compliance loop would mean running each command against fixtures and grading whether
 // it obeyed its own rules. That does not exist yet, and pretending this substitutes for it
-// would be the same overclaim the harness gets criticised for elsewhere.
+// would be the same overclaim bencium-loop gets criticised for elsewhere.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -21,7 +21,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const commandDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "bencium-harness", "commands");
+const commandDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "bencium-loop", "commands");
 
 // { lines, rules } — locked 2026-07-25, post-consolidation. Lower is always fine.
 const BUDGET = {

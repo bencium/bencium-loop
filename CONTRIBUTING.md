@@ -8,7 +8,7 @@ node --test "tests/*.test.mjs"
 
 No dependencies, no install step. Two suites:
 
-- **Workflow behaviour** — drives each script in `bencium-harness/workflows/` with fake agents that
+- **Workflow behaviour** — drives each script in `bencium-loop/workflows/` with fake agents that
   reproduce the runtime's real failure mode (an agent that dies returns `null`). The cases exist
   because each one was once a bug that reported green.
 - **Rule budget** — line and hard-rule counts per command file, locked at current values.
@@ -28,7 +28,7 @@ So:
    `tests/rule-budget.test.mjs` is a deliberate act and shows up in review as its own diff. That is
    the point — drift should require a decision, not just an edit.
 3. **Prefer a skill over a restatement.** A rule that belongs to more than one command goes in
-   `bencium-harness/skills/` and gets referenced. `invariants`, `markers`, `phase-banner`, and
+   `bencium-loop/skills/` and gets referenced. `invariants`, `markers`, `phase-banner`, and
    `accelerated-mode` all exist for this reason.
 
 The budget test measures volume, not compliance. It tells you the surface is growing; it cannot
@@ -46,7 +46,7 @@ not as evidence.
 
 ## Changing a hook
 
-The three gates in `bencium-harness/hooks/` are the only places the harness enforces rather than
+The three gates in `bencium-loop/hooks/` are the only places the loop enforces rather than
 asks. They are also the only places a bug can block legitimate work, so:
 
 - Exit 0 early and often. No `.harness/` directory, wrong phase, wrong file, wrong command — get
@@ -59,5 +59,5 @@ asks. They are also the only places a bug can block legitimate work, so:
 ## Releases
 
 Codenames are `<Month> <Theme>`; the theme vocabulary is at the top of `CHANGELOG.md`. Bump the
-version in both `bencium-harness/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`
+version in both `bencium-loop/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`
 — they have drifted apart before.

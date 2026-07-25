@@ -1,4 +1,4 @@
-# Install bencium-harness
+# Install bencium-loop
 
 This plugin is published in the **bencium-marketplace** Claude Code marketplace. No unzip, no `settings.json` editing. One marketplace registration, one `/plugin install`.
 
@@ -8,17 +8,17 @@ Inside Claude Code:
 
 ```
 /plugin marketplace add bencium/bencium-marketplace
-/plugin install bencium-harness@bencium-marketplace
+/plugin install bencium-loop@bencium-marketplace
 ```
 
 Restart Claude Code, then verify:
 
 ```
-/plugin list           # bencium-harness@bencium-marketplace should be enabled
+/plugin list           # bencium-loop@bencium-marketplace should be enabled
 /bencium-init          # triggers the 5-question interview
 ```
 
-The marketplace pulls the plugin straight from the [`bencium/bencium-harness`](https://github.com/bencium/bencium-harness) repo (`git-subdir` source), so `/plugin marketplace update bencium-marketplace` always fetches the latest release.
+The marketplace pulls the plugin straight from the [`bencium/bencium-loop`](https://github.com/bencium/bencium-loop) repo (`git-subdir` source), so `/plugin marketplace update bencium-marketplace` always fetches the latest release.
 
 ## Local development install (for editing the plugin)
 
@@ -30,15 +30,15 @@ Inside Claude Code, run:
 /plugin marketplace add /Users/bencium/benc-harness-source
 ```
 
-This adds `bencium-harness-local` to your `~/.claude/plugins/known_marketplaces.json`.
+This adds `bencium-loop-local` to your `~/.claude/plugins/known_marketplaces.json`.
 
 ### 2. Install the plugin
 
 ```
-/plugin install bencium-harness@bencium-harness-local
+/plugin install bencium-loop@bencium-loop-local
 ```
 
-That's the one-line install. The plugin is now cached under `~/.claude/plugins/cache/bencium-harness-local/bencium-harness/<VERSION>/` (check the version with `/plugin list`).
+That's the one-line install. The plugin is now cached under `~/.claude/plugins/cache/bencium-loop-local/bencium-loop/<VERSION>/` (check the version with `/plugin list`).
 
 ### 3. Restart Claude Code
 
@@ -48,7 +48,7 @@ Quit and relaunch. Verify with:
 /plugin list
 ```
 
-You should see `bencium-harness@bencium-harness-local` listed as enabled. Then:
+You should see `bencium-loop@bencium-loop-local` listed as enabled. Then:
 
 ```
 /bencium-init
@@ -61,7 +61,7 @@ should trigger the 5-question interview.
 Edit files directly in your local clone (the path you registered as the marketplace above), then in Claude Code:
 
 ```
-/plugin update bencium-harness@bencium-harness-local
+/plugin update bencium-loop@bencium-loop-local
 ```
 
 Restart and re-test.
@@ -69,17 +69,17 @@ Restart and re-test.
 ## Uninstall
 
 ```
-/plugin uninstall bencium-harness@bencium-marketplace
+/plugin uninstall bencium-loop@bencium-marketplace
 /plugin marketplace remove bencium-marketplace
 ```
 
-Restart Claude Code. (Local-dev installs use `@bencium-harness-local` / `bencium-harness-local` instead.)
+Restart Claude Code. (Local-dev installs use `@bencium-loop-local` / `bencium-loop-local` instead.)
 
 ## Hooks (automatic)
 
 The plugin registers four hooks in `hooks/hooks.json`. They activate when the plugin is enabled — nothing to paste, nothing to chmod. All four stay completely silent outside a project that has a `.harness/` folder.
 
-Three of them are gates. They are the only places the harness enforces a rule rather than asking for it:
+Three of them are gates. They are the only places the loop enforces a rule rather than asking for it:
 
 - **Plan gate** (`PreToolUse` on Edit/Write/NotebookEdit) — refuses file edits while `.harness/state` says `phase=plan`. The throwaway prototype paths (`_prototype/`, `.harness/prototype/`) are exempt, since the PROTOTYPE detour is allowed to write before approval.
 - **Deploy gate** (`PreToolUse` on Bash) — refuses your configured `deploy.cmd` unless `.harness/last-verify` shows a clean verify for the commit you are about to ship. Written by `/bencium-verify`; a stale or failing receipt blocks the deploy.
@@ -95,13 +95,13 @@ To disable any of them, use `permissions.deny` in your settings rather than edit
 
 ## Statusline (optional)
 
-The plugin ships a statusline script at `statusline/harness-status.sh`. Claude Code plugins cannot register a statusline declaratively, so wire it into your own `~/.claude/settings.json`:
+The plugin ships a statusline script at `statusline/loop-status.sh`. Claude Code plugins cannot register a statusline declaratively, so wire it into your own `~/.claude/settings.json`:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "~/.claude/plugins/cache/bencium-marketplace/bencium-harness/<VERSION>/statusline/harness-status.sh",
+    "command": "~/.claude/plugins/cache/bencium-marketplace/bencium-loop/<VERSION>/statusline/loop-status.sh",
     "padding": 1
   }
 }
@@ -110,7 +110,7 @@ The plugin ships a statusline script at `statusline/harness-status.sh`. Claude C
 Replace `<VERSION>` with the installed version (check with `/plugin list`). Then make the script executable:
 
 ```bash
-chmod +x ~/.claude/plugins/cache/bencium-marketplace/bencium-harness/<VERSION>/statusline/harness-status.sh
+chmod +x ~/.claude/plugins/cache/bencium-marketplace/bencium-loop/<VERSION>/statusline/loop-status.sh
 ```
 
 Restart Claude Code. In any project with a `.harness/` folder you will see a two-row bar at the bottom:
