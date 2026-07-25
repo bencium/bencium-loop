@@ -11,7 +11,7 @@
       "name": "bencium-harness",
       "source": "./bencium-harness",
       "description": "Lightweight AI-assisted build harness: scaffold + tasks + acceptance + living roadmap + decision log + mandatory plan/spec gate + verify gate + deploy/rollback. Six-phase loop with ANSI-colored phase banners and explicit memory confirmation.",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "author": {
         "name": "Bencium",
         "url": "https://bencium.io"

@@ -29,13 +29,13 @@ Examples of typical commands users may have configured: `npm test -- --run`, `np
 
 For EACH unchecked item in `ACCEPTANCE.md`:
 
-1. **Tag check first.** If the line starts with `- [deployed]` (or has a trailing `[deployed]` tag), it is a deployed-environment check. Classify as **SKIP** with reason `awaiting post-deploy smoke — re-walked by /bencium-deploy Step 5.5 against deploy.url`. Do NOT attempt to evaluate it locally, and do NOT mark it `[x]`. Move on. (Rationale: local pass != deployed pass. The whole reason this tag exists is because tests passing locally have falsely confirmed deployed features in the past.)
+1. **Tag check first.** If the line contains a `[deployed]` tag **anywhere** — as the checkbox marker (`- [deployed] X`), after the checkbox (`- [ ] [deployed] X`, the form a row takes once SMOKE has flipped it and something later unchecked it), or trailing the text — it is a deployed-environment check. Classify as **SKIP** with reason `awaiting post-deploy smoke — re-walked by /bencium-deploy Step 5.5 against deploy.url`. Do NOT attempt to evaluate it locally, and do NOT mark it `[x]`. Move on. (Rationale: local pass != deployed pass. The whole reason this tag exists is because tests passing locally have falsely confirmed deployed features in the past.)
 2. Otherwise the line is `- [ ]` (local). Read the check carefully.
 3. Determine the minimum evidence needed to call it pass/fail. Examples:
    - "All list endpoints paginated" → grep for route handlers, inspect for limit/offset/cursor
    - "Health check returns 200" → run curl against the configured URL
    - "No secrets in repo" → grep for common patterns (`SUPABASE_KEY=`, `sk_live_`, etc.) in tracked files only
-   - "Bilingual EN/HU preserved" → grep for stripped diacritics or missing translation keys
+   - "Localized strings preserved" → grep for stripped diacritics or missing translation keys
    - "UI discloses backend activity" → grep for `fetch(`, `useQuery`, `useMutation`, upload handlers and confirm each has visible loading/error state (e.g. matching `isLoading`, `<Spinner`, `<Skeleton`, `toast.error`, etc.); flag any async call with no visible state binding.
 4. Gather the evidence. Run commands, read files, search the codebase.
 5. Classify as PASS, FAIL, or SKIP (with reason). SKIP for a local check is only acceptable when it genuinely doesn't apply yet (e.g., "deploy works" before first deploy).
@@ -77,19 +77,15 @@ The subagent is advisory to the gate, not a separate gate — its FAILs flip the
 
 ## Step 3c: Accelerated path — workflow fan-out (opt-in, Claude Code only)
 
-This is a faster, wider version of Steps 3 + 3b for long ACCEPTANCE lists. It is **purely additive** — the serial walk above stays the default and the portable path. Two gates must **both** be true before you use it; if either is false, run Steps 3/3b serially and skip this section entirely:
-
-1. **Runtime gate.** You must have a `Workflow` tool available. It exists only in Claude Code. On Codex, opencode, or a copy-paste chat surface there is no `Workflow` tool — in that case do **not** try to emulate this with extra `Task` subagents (that would break the 3-agent cap); just run the serial path.
-2. **Opt-in gate.** The user asked for it this run (e.g. "verify with a workflow", a `workflow` argument, or "ultracode"). Never invoke it automatically — it spawns many agents and costs tokens.
+A faster, wider version of Steps 3 + 3b for long ACCEPTANCE lists. **Read the `accelerated-mode` skill first** — it holds the two gates (a `Workflow` tool must exist, and the user must have opted in this run), the fallback rule, and the guardrails. If either gate is false, run Steps 3/3b serially and skip this section entirely.
 
 When both hold:
 
 1. Collect the unchecked **local** rows (the same set Step 3 walks — never `[deployed]` rows; those stay deferred to SMOKE). Gather the `git diff` and the Step 2 `verify.cmd` output.
 2. Invoke the `Workflow` tool with the scaffolded script (prefer the project copy `.claude/workflows/verify-acceptance.mjs`; fall back to `${CLAUDE_PLUGIN_ROOT}/workflows/verify-acceptance.mjs`). Pass `args: { rows: [{ text }], diff, verifyOutput }`. The workflow evaluates each row (Haiku) and adversarially re-checks each PASS with a fresh skeptic (Sonnet) — Step 3a's gamed-pass hunt, at scale.
 3. Fold the returned `items` into your Step 4 report exactly as if you had walked them serially. A row the workflow marks `fail` (including a refuted PASS) is FAIL — take the stricter verdict, same reconciliation rule as Step 3b.
-4. Record that the workflow path ran: set `mode: "workflow"` and `agents: <count>` in the Step 8 marker (see below). If you ran serially, set `mode: "serial"` and omit or zero `agents`.
-
-The workflow is advisory to the gate in exactly the way the Step 3b subagent is — it does not deploy, it does not check off `[deployed]` rows, and its output flows into the same marker schema.
+   The workflow returns one item per row you passed in — never fewer. A row it could not evaluate, and a PASS whose skeptic never ran, both come back `fail` with `unverified: true`. Report those as failures and say how many: `N row(s) could not be evaluated`. An unverified row is a row with no evidence behind it, and this gate's own rule is to prefer FAIL over a hopeful PASS.
+4. Record that the workflow path ran: set `mode: "workflow"` and `agents: <count>` in the Step 8 marker (see below). If you ran serially, set `mode: "serial"` and `agents: 0`.
 
 ## Step 4: Report
 
@@ -161,6 +157,16 @@ Render `${CLAUDE_PLUGIN_ROOT}/templates/next-moves.md.tmpl`, filling:
 
 Put `/bencium-deploy` at the top of the rendered output and tell the user the gate is open.
 
+## Step 6.5: Write the verify receipt
+
+Whatever the result, record it so the deploy gate can read it:
+
+```bash
+[ -d .harness ] && printf 'result=%s\nsha=%s\nts=%s\n' "<pass|partial|fail>" "$(git rev-parse HEAD 2>/dev/null || echo unknown)" "$(date -u +%FT%TZ)" > .harness/last-verify
+```
+
+This is not bookkeeping — on Claude Code `deploy-gate.sh` reads it and refuses the deploy command unless `result=pass` and `sha` matches the current HEAD. A `fail` receipt is as important as a `pass` one: writing nothing would leave the previous run's verdict standing while the code has moved on. Recommend adding `.harness/last-verify` to `.gitignore` alongside `.harness/state`.
+
 ## Step 7: Memory confirmation
 
 Whether the result was PASS or FAIL, print one explicit memory line so the user knows what landed in `.harness/memory.md`:
@@ -195,6 +201,7 @@ Schema:
     "pass": <int>,
     "fail": <int>,
     "skip": <int>,
+    "unverified": <int>,
     "items": [
       { "text": "<ACCEPTANCE row text>", "status": "pass" | "fail" | "skip", "evidence": "<one-line>" }
     ]
@@ -208,6 +215,7 @@ Schema:
 Rules for populating:
 
 - `result` is `pass` only if every hard check passes AND every local soft check is `pass`. Any `fail` → `fail`. All `pass` with any `skip` → `partial`. `deferred_to_smoke` entries do NOT count toward the result (they are evaluated by `/bencium-deploy` SMOKE).
+- `unverified` is the subset of `fail` rows that failed because nothing could be evaluated (dead agent, unrun skeptic) rather than because the check genuinely did not hold. It is `0` on the serial path. `items` must contain one entry per row you set out to walk — a row you could not evaluate is `fail` with the reason as its evidence, never a missing entry.
 - `evidence` strings come from the same prose report in Step 4 — one line each, no markdown.
 - `hard_checks` is an empty array if `.harness/config.yaml` has no `verify.cmd` entries.
 - `deferred_to_smoke` is an empty array if no `[deployed]`-tagged rows exist.
@@ -215,13 +223,11 @@ Rules for populating:
 
 ## Hard rules
 
-- Never mark a check `[x]` without actual evidence (file path, grep result, command output).
-- Never invent results. If you can't verify a check, mark it SKIP with a reason — don't guess.
+- **Evidence before a tick, and an unevaluated check is a failed check** — see the `invariants` skill. Never invent a result; if a check genuinely does not apply yet, mark it SKIP with a reason.
 - **A gamed pass is a FAIL.** If Step 3a finds a weakened/skipped/hardcoded test or a narrowed `verify.cmd`, the backed check is FAIL regardless of the green result. Green is necessary, not sufficient — the test must still assert the real behavior.
 - **Prefer separation on self-authored work.** If you verified a feature you also built in this session, run Step 3b — a same-context self-grade skews positive. When the independent reviewer is stricter, take the stricter verdict unless you can refute it with concrete evidence. The 3-agent cap is hard; one verifier subagent is the norm.
-- **The 3-agent cap governs `Task` subagents.** Workflow mode (Step 3c — Claude Code only, explicit opt-in) is a separate escalation and is not bound by this cap. It is additive: when the `Workflow` tool is absent or the user did not opt in, the serial path runs unchanged.
-- **Never evaluate `[deployed]`-tagged rows locally.** They are SKIP with reason `awaiting post-deploy smoke` until `/bencium-deploy` walks them against `deploy.url`. Marking one `[x]` from local state is a false confirmation — the exact failure mode this gate was built to prevent.
+- **The 3-agent cap governs `Task` subagents.** Workflow mode (Step 3c) is a separate escalation and is not bound by it — see the `accelerated-mode` skill.
+- **Never evaluate `[deployed]`-tagged rows locally** — the DEPLOY → SMOKE invariant. They are SKIP with reason `awaiting post-deploy smoke` until `/bencium-deploy` walks them against `deploy.url`. On Claude Code `acceptance-gate.sh` blocks the edit if you try.
 - Do not modify source code during verify. Only update ACCEPTANCE.md checkboxes and .harness/memory.md.
 - Never skip the TEST banner or the memory confirmation line — they're how the user knows where they are in the loop.
-- **The Step 8 marker block MUST be the last output.** Nothing after the closing fence — no prose, no banner close, no whitespace. Downstream tools locate it as the trailing fenced JSON.
-- **Markers report state, not opinion.** No "recommendations" inside the JSON — those stay in prose above. The marker schema is versioned (`version: 1`); future schema changes bump the integer.
+- **The Step 8 marker block MUST be the last output** — see the `markers` skill.

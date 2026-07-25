@@ -27,3 +27,6 @@ site/
 .env
 .env.local
 .gstack/
+
+# Session transcripts and telemetry — never publish these
+.agent-logs/

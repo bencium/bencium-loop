@@ -7,9 +7,9 @@ Rules are dual-listed: things the agent must DO, things it must NOT do. Sharper 
 ## DO
 
 - (example) Use env vars + `.gitignore` for all secrets
-- (example) Default LLM calls to Haiku unless explicitly justified
+- (example) Default LLM calls to the cheapest model that passes; escalate only on failure
 - (example) Paginate every list endpoint (default limit 25)
-- (example) Preserve EN/HU diacritics in strings: á é í ó ö ő ú ü ű
+- (example) Preserve non-ASCII characters in localized strings — never strip accents or diacritics
 
 ## DO NOT
 

@@ -1,6 +1,6 @@
 ---
 description: Pick the next task from tasks.md ## Now, write a plan/spec, gate on user approval, then build
-allowed-tools: Read, Edit, Write, Bash, Workflow
+allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 ---
 
 You are running `/bencium-next` — the build-loop driver.
@@ -48,7 +48,7 @@ This is the **one** place `/bencium-next` may write files before the PLAN gate �
 
 ```
 \033[38;5;208m┌── PROTOTYPE ── throwaway pixels, no commitment ──┐\033[0m
-[🎨] ▸ 🗺️ ▸ 📋 ▸ 🔨 ▸ ✓ ▸ 💭
+[🎨] ▸ 🗺️ ▸ 📋 ▸ 🔨 ▸ ✓ ▸ 🚀 ▸ 🔥 ▸ 💭
 ```
 
 1. Invoke the `prototype` skill to scaffold a **throwaway** UI preview for this task. Its "several radically different UI variations toggleable from one route" branch is the right fit for eyeballing look-and-feel.
@@ -76,7 +76,7 @@ Print the PLAN banner (cyan):
 
 ```
 \033[36m┌── PLAN ── review before coding ──┐\033[0m
-🗺️ ▸ [📋] ▸ 🔨 ▸ ✓ ▸ 💭
+🗺️ ▸ [📋] ▸ 🔨 ▸ ✓ ▸ 🚀 ▸ 🔥 ▸ 💭
 ```
 
 Then write a 10–25 line plan/spec for the picked task. Structure:
@@ -105,10 +105,10 @@ Conventions touched (from .harness/conventions.md):
   - <or "none — trivial change">
 
 Design skills to invoke (only if UI touched):
-  - Before code:  bencium-innovative-ux-designer OR impeccable
-  - For copy:     typography
-  - After code:   design-review
-  (skip this section if no UI involved)
+  - Before code:  <design skill named in .harness/conventions.md, or "none configured">
+  - After code:   <review skill, or "none configured">
+  (skip this section if no UI involved; name only skills that exist in this environment —
+   never invent a skill name, and never block the plan on a missing one)
 
 Prototype direction (only if Step 2.5 ran):
   - <chosen look-and-feel in one line> — throwaway preview at <path>, delete after BUILD
@@ -195,19 +195,6 @@ Before editing **any** implementation file:
 
 Execute the work per the approved plan. Touch only the files declared in the plan unless you discover the plan is wrong — in which case STOP, print a one-line note ("plan needs update: X"), and ask whether to revise the plan or continue.
 
-### Step 4.1b — Accelerated batch build (opt-in, Claude Code only — bounded)
-
-This is the **only** build-loop fan-out, and the only accelerated path that touches the gate's neighborhood — so it is fenced hard. It never replaces the serial Step 4.0/4.1; it is an additive option for one narrow shape. Use it only when **all** of these hold:
-
-1. **The gate already approved a batch.** Phase A (Step 3) split the task into N sub-items and the user approved that plan. The human PLAN→BUILD gate stays serial and up front — fan-out only executes what was approved.
-2. **The items are genuinely independent and mechanical** — disjoint files, repetitive (e.g. a rename/codemod across N modules), no shared-file edits, no architecture decisions.
-3. **Runtime gate:** a `Workflow` tool is available (Claude Code only — absent on Codex/opencode/paste; do not emulate with `Task`).
-4. **Opt-in gate:** the user asked for it this run.
-
-When all hold: invoke the `Workflow` tool with `.claude/workflows/batch-build.mjs` (fall back to `${CLAUDE_PLUGIN_ROOT}/workflows/batch-build.mjs`), passing `args: { items: [{ title, spec, testCmd, acceptance }] }` built from the approved sub-items. Each item builds in its own git worktree (parallel writes cannot clobber), observes its own RED→GREEN, and is checked by an independent reviewer. Fold the returned per-item results into Step 4.2 as if built serially; any item not `pass` is unfinished and its task stays unchecked. Set `mode: "workflow"` + `agents: <count>` in the Step 4.3 marker.
-
-**Forbidden even here (hard guardrails):** no agent deciding architecture; no skipping the observed RED→GREEN per item; no concurrent writes to shared files without worktree isolation; the PLAN→BUILD gate is never fanned out — only the pre-approved, independent work inside it is. If any item turns out non-mechanical or entangled, it returns incomplete — finish it serially.
-
 ### Step 4.2 — confirm green
 
 After implementation, re-run the failing test from Step 4.0. It must now pass.
@@ -256,8 +243,6 @@ Schema:
   "ts": "<ISO8601 UTC>",
   "phase": "build",
   "task": "<picked task title>",
-  "mode": "serial" | "workflow",
-  "agents": <int>,
   "result": "complete" | "incomplete",
   "tdd": "red-green" | "trivial-bypass" | "skip-tdd",
   "test": { "file": "<path>", "name": "<test name>", "status": "green" | "n/a" },
@@ -274,7 +259,7 @@ Rules for populating:
 - `test.status` is `green` on the normal path after Step 4.2 confirms it; `n/a` for `trivial-bypass` / `skip-tdd`.
 - `sha` from `git rev-parse --short HEAD` (read-only — BUILD does not commit, so this is the pre-existing HEAD, used as a pointer to where the work sits).
 - `learning` mirrors the one-liner written under `## Learnings`, or `null` if memory was unchanged.
-- `mode` / `agents` are **optional, additive** fields (schema stays `version: 1`): `mode: "workflow"` + the agent count only when Step 4.1b ran, else `mode: "serial"` + `agents: 0`. Consumers that predate them ignore them — the serial build is byte-for-byte the old behavior.
+- BUILD has no accelerated path — it is always serial, so the marker carries no `mode` / `agents` fields. A consumer that saw them on a v0.8.0 build marker should treat their absence as `serial`.
 
 ## Hard rules
 
@@ -282,9 +267,8 @@ Rules for populating:
 - **Phase A plan MUST include `Failing test (red):` and `Deployed-env check (smoke):` fields.** Refuse to proceed if either is missing. The fields force the user to decide *what proves this works* before any code is written — both locally and on the deployed env.
 - **Phase B is entered only after explicit user approval.** Silence, "looks good", or anything ambiguous does NOT count — re-prompt.
 - **Phase B Step 4.0 (RED) MUST run before any implementation edit.** No writing implementation files until the declared failing test is observed in a red state for the expected reason. The only exceptions are `none — trivial (declared)` and an explicit `skip tdd` with a justification logged to `.harness/memory.md ## TDD bypasses`.
-- **Do not check off a task until both the local test passes AND (if the task has a `[deployed]` ACCEPTANCE row) `/bencium-deploy` SMOKE has passed that row against the live URL.** Marking `[x]` in `tasks.md` from local-only state is the false-confirmation failure mode the loop was hardened against.
+- **Do not check off a task until the local test passes AND any `[deployed]` ACCEPTANCE row has passed SMOKE against the live URL** — the DEPLOY → SMOKE invariant, see the `invariants` skill. Marking `[x]` from local-only state is the false confirmation the loop was hardened against.
 - Do not modify the order of `## Now` items unless the user asks.
-- If the task is too big to finish in one go, split it during Phase A: propose 2-3 sub-tasks in the plan, get approval to edit `tasks.md`, then proceed. When those sub-tasks are genuinely independent and mechanical, Step 4.1b's opt-in, Claude-Code-only batch build can execute them in parallel worktrees — but the split and its approval still happen serially at the PLAN gate first.
-- **The accelerated batch build (Step 4.1b) is a separate escalation, not bound by the 3-agent cap, and never automatic.** It requires a `Workflow` tool (Claude Code only), an explicit opt-in, and a gate-approved batch of independent mechanical items. It fans out work *inside* an approved task; it never fans out the gate. Absent any of those, Phase B builds serially exactly as before.
+- If the task is too big to finish in one go, split it during Phase A: propose 2-3 sub-tasks in the plan, get approval to edit `tasks.md`, then proceed. The split happens at the PLAN gate; the sub-tasks are then built one at a time like any other task.
 - If `.harness/conventions.md` is missing, note "conventions.md not found — running without quality guardrails" in the plan instead of skipping silently.
-- **The Step 4.3 marker block MUST be the last output of Phase B** — after the `next-moves` render, nothing after the closing fence (no prose, no banner, no whitespace). Downstream tools locate it as the trailing fenced JSON. Markers report state, not opinion — no recommendations inside the JSON; those stay in the prose above. The schema is versioned (`version: 1`); future changes bump the integer. Phase A (PLAN) emits no marker — it is the read-only gate, and the BUILD marker already records the plan that was executed.
+- **The Step 4.3 marker block MUST be the last output of Phase B** — see the `markers` skill for the placement and content contract. Phase A emits no marker.

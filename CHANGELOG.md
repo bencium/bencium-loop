@@ -9,7 +9,97 @@ Theme vocabulary (pick one when cutting a release):
 
 ## Unreleased
 
-_Nothing committed since v0.7.0 yet._
+Answers three structural criticisms that survived the v0.8.0 bug fix — they were about what the harness *is*, not about defects. Theme when cut: **Anchor**.
+
+### Added — two more gates, so the loudest claims are mechanism
+
+The README said "refuses on verify fail". What existed was a command *instructed* to refuse. Persuasion works most of the time, and the gap opens exactly where you would want the gate: a long session, a tired user, a model under context pressure.
+
+- **Deploy gate** (`hooks/deploy-gate.sh`, `PreToolUse` on Bash). Reads `deploy.cmd` from `.harness/config.yaml`, matches on its first two tokens so `npm publish` cannot catch `npm test`, and refuses the deploy unless `.harness/last-verify` shows `result=pass` for the **current HEAD**. A receipt from an earlier commit proves nothing about what is about to ship.
+- **Acceptance gate** (`hooks/acceptance-gate.sh`, `PreToolUse` on Edit/Write). Refuses to tick a `[deployed]` row in `ACCEPTANCE.md` unless the phase is `smoke`. It matches the literal `[x] [deployed]` in the raw tool payload — brackets and spaces are not JSON-escaped, so no parsing is needed. This is what v0.8.0's tag-preservation fix bought: something exact to match on. Un-ticking never matches, so `/bencium-rollback` still reverts those rows.
+- **The verify receipt** — `/bencium-verify` Step 6.5 writes `.harness/last-verify` with result, sha, and timestamp on every run. A `fail` receipt matters as much as a `pass` one: writing nothing would leave the previous verdict standing while the code moved on.
+
+Three gates now exist on Claude Code and nowhere else. `INSTALL.md`, `CODEX.md` and the README say so plainly rather than implying parity.
+
+### Removed — the parallel batch build
+
+`workflows/batch-build.mjs`, `/bencium-next` Steps 4.1b and 4.1c, and their tests are gone.
+
+It bought throughput on the one part of the loop that was never the bottleneck — the bottleneck is the human reading the plan — and it was the only fan-out that wrote code, which is where three of v0.8.0's four bugs came from, including tasks being ticked while the code sat in unmerged worktrees. That is the signature of a feature added because it was possible rather than because it was needed, so this is the harness's own "strip pieces no longer load-bearing" principle turned on itself.
+
+Every remaining accelerated path (`verify-acceptance`, `smoke-deployed`, `brownfield-scan`) is read-only, which is a cleaner boundary than the one it replaces. Splitting an oversized task into sub-tasks at the PLAN gate stays — that was always the useful half. `/bencium-next` no longer needs the `Workflow` tool, and its build marker no longer carries `mode` / `agents`.
+
+### Added — a feedback loop for the harness's own instructions
+
+Across v0.5.0 → v0.8.0 no command file ever shrank, and nothing would have said when rule count started costing compliance.
+
+- **`tests/rule-budget.test.mjs`** — per-command line and hard-rule budgets plus fleet totals, locked at current counts with no headroom. Verified to fail on a single added line. Raising a budget is a visible diff, not a drift.
+- **`CONTRIBUTING.md`** — a release that adds a hard rule should remove or subsume one; if a count goes up, the CHANGELOG says why. Also documents the hook conventions and the no-`jq` rule.
+- Stated plainly in the test and the docs: **it measures volume, not compliance.** A file under budget is not evidence the rules are still followed. Claiming otherwise would be the same overclaim being fixed elsewhere in this release.
+
+### Changed — consolidation and honest copy
+
+- **New `invariants` skill** — the four ordering invariants and the three evidence rules, each with its reason and its real enforcement status, stated once. They had been restated across `bencium-verify.md`, `bencium-deploy.md`, `bencium-next.md` and `conventions.md.tmpl`.
+- **New `markers` skill** — the shared marker contract (placement, state-not-opinion, versioning), which had been repeated six times across four commands.
+- Hard rules across the fleet: **53 → 47**. Lines: 1397 → 1377. The line count barely moved because a reference costs nearly what a restatement costs; the rule count is the number that bears on instruction-following.
+- **README**: the comparison table no longer reads like mechanism, and a new "What's enforced, and what's asked for" section maps every invariant to hook, code, or asked. The browser-tools section no longer implies the terminal enforces everything.
+- **Landing page**: "It will not call something done until it is" became "without proof"; the deployed-row claim now says the tool blocks it; a new row states which three rules are enforced and that the rest are conventions.
+- `bencium-verify.md`'s line budget was raised 223 → 233 for the receipt step — recorded here because that is the rule.
+
+### Deliberately not fixed
+
+- **RED → GREEN stays advisory.** Enforcing it would need a hook that knows which file is the test and whether it was seen failing for the right reason. That is not reliably decidable from a tool call, and a gate that misfires on legitimate work is worse than no gate. It is listed as `asked` rather than papered over.
+- **The phase-state write snippet stays inline** in all 12 places rather than being folded into a skill. It would have saved ~24 lines, but `.harness/state` is now the input to two hooks, and replacing an exact copy-pasteable command with a reference is the wrong trade when the mechanism depends on it.
+
+---
+
+## Jul Hardening — v0.8.0 (2026-07-25)
+
+Correctness pass over the v0.7.0 accelerated mode, plus the first two things in the harness that *enforce* rather than *ask*: a PLAN gate wired as a real hook, and a test suite the harness runs against itself.
+
+The release exists because a review found that the accelerated SMOKE path reported **pass** when every one of its agents died — `[].every()` is `true` — so `/bencium-deploy` would tick the `[deployed]` rows and call a feature shipped with nothing proved against the live URL. That is the exact false confirmation the TEST/SMOKE split was built to prevent, reached from inside the harness's own code. Three related silent-drop bugs shared the cause, and the parallel batch build turned out to strand its output in worktrees nobody merged while still marking tasks done.
+
+Nothing here changes the serial path's behavior. The accelerated paths stay opt-in and Claude-Code-only; the marker schemas gain only additive fields at `version: 1`; a repo set up by an older version keeps working. The one genuinely new behavior is the PLAN gate hook, which is inert outside a `.harness/` project and in every phase but `plan`.
+
+### Fixed — false greens
+
+- **A smoke run whose agents all died reported PASS.** `smoke-deployed.mjs` classified the result with `clean.every(r => r.status === 'pass')`, and `[].every()` is `true`. Rows dropped out of `clean` whenever an agent returned `null` (the documented behavior when a subagent dies or is skipped), because the `.then()` threw and `parallel()` converts a throwing thunk to `null`. With every row dropped, `/bencium-deploy` checked off the `[deployed]` rows and declared the feature shipped — precisely the false confirmation the SMOKE phase exists to prevent. Zero evaluated rows is now a FAIL, and no row can leave any workflow without a verdict.
+- **Rows vanished silently from the accelerated verify and batch build** for the same reason. All three fan-out scripts now return one result per item they were given; an item that could not be evaluated comes back `fail` with `unverified: true` and a reason. The commands report the count (`N row(s) could not be evaluated`) rather than folding it into the failure total.
+- **A PASS whose skeptic never ran no longer stays green.** An unrun refutation means nothing confirmed the pass — it fails as unverified.
+- **`agents` counts in the markers were wrong.** `batch-build` reported `items.length * 2` even though items failing the build gate never spawn a reviewer; `verify-acceptance` reconstructed the count from surviving rows. Both now count the agents actually spawned.
+
+### Fixed — the batch build stranded its own output
+
+- **Worktree code never came back.** Builders run in isolated worktrees, nothing merged them, and `/bencium-next` still marked tasks `- [x]`. Each builder now commits on a `batch/<slug>` branch and returns it; a build that reports complete without a branch cannot pass. New **Step 4.1c (merge back)** merges those branches into the main worktree, re-runs the full test command *there*, and only then may a task be checked off. New hard rule: a worktree green is not a green.
+
+### Fixed — invariants the harness stated but broke
+
+- **A rollback left `[deployed]` rows checked.** New Step 5.5 un-checks every deployed row the rolled-back deploy had flipped. What was proved against the previous deployment is not proved against what is live now.
+- **Checking off a `[deployed]` row destroyed its tag.** SMOKE now writes `- [x] [deployed] X`, and `/bencium-verify` treats a `[deployed]` tag anywhere on the line as deferred. Previously an unchecked row came back as a plain local row and would be evaluated against the working tree.
+- **`/bencium-rollback` printed a SHA it never captured.** It now runs `git rev-parse` in Step 1, or reports `unknown` — reconstructing it from context is inventing evidence. Rollback also gained a `bencium-rollback-result` marker; it was the only state-changing step without one.
+- **The statusline hid the deployed gap.** It counted only `- [x]` and `- [ ]`, so `[deployed]` rows were invisible: 7 local + 3 deployed rendered as a fully green `7/7 ✓`. Local and deployed ratios are now separate — `7/10 ✓ · 1/3 🔥` — and a project with no deployed rows shows `— 🔥` rather than nothing.
+
+### Fixed — hooks that could never fire
+
+- **Every hook `/bencium-retro` proposed was inert.** The settings.json snippet used `matcher: {tool, pattern}`, a top-level `command`, and a `blocking` field. The real schema takes a string `matcher` (tool name only), a nested `hooks` array of `{type: "command", ...}`, and `if` for command-level filtering — and there is no `blocking` field, because exit 2 is what blocks. Corrected, with the three easy-to-get-wrong parts named.
+- **The shipped `post-commit-nag.sh` had never run.** A plugin registers hooks through `hooks/hooks.json`, which did not exist. It does now, with the nag scoped by `"if": "Bash(git commit*)"` — the command-text filtering its own header comment always claimed.
+
+### Added
+
+- **An enforced PLAN gate** (`hooks/plan-gate.sh`, `PreToolUse` on Edit/Write/NotebookEdit). While `.harness/state` says `phase=plan`, an edit is refused with exit 2. PLAN→BUILD was the harness's headline invariant and, until now, a sentence in a prompt. The PROTOTYPE detour's disposable paths stay exempt. Silent outside a `.harness/` project and in every other phase. Claude Code only — on Codex the gate remains advisory, and `CODEX.md` now says so.
+- **A test suite for the harness itself** (`tests/`, `node --test`, no dependencies). The workflow scripts are not importable modules — the runtime evaluates them with injected globals and a legal top-level `return` — so `tests/harness.mjs` loads each one the same way and drives it with fake agents that reproduce the runtime's null-on-death semantics. 17 cases; the first is the empty-array false PASS, and it was confirmed red against the old code before the fix.
+- **`accelerated-mode` skill** — single source of truth for the workflow fan-out: the two gates, the fallback rule, the guardrails, and the marker fields. The same contract had been copied into four command files.
+
+### Changed
+
+- **`conventions.md.tmpl` is now stack-neutral.** It previously baked one person's stack into every generated project — component library, styling, localization, and skill names that only resolve on one machine. The generic rules (file size, LSP-before-edit, ordering invariants, cost, UI disclosure, TDD, the TEST/SMOKE split) stay; stack specifics became a "fill these in" block, and per-project rules live where they belong, in `.harness/rules.md`. `/bencium-next`'s plan block no longer names design skills that may not exist.
+- **Marker schemas gained states they were already producing.** The smoke marker takes `partial` and a row status of `skip` (the prose allowed SKIP; the schema had nowhere to put it), plus an `unverified` count. The verify marker gained `unverified`. Still `version: 1` — additive only.
+- **Four stale phase-progress strips** in `/bencium-retro`, `/bencium-promote` and `/bencium-next` were missing 🚀 and 🔥, and `/bencium-init` printed the loop in the wrong order with SMOKE absent — all contradicting the `phase-banner` skill they were supposed to follow.
+- **`/bencium-init` no longer points at `/bencium-import-rules`**, a command that has never existed; it renders `rules.md.tmpl` instead.
+- `allowed-tools` corrected: `/bencium-decide` can `Edit` (it appends to memory.md), `/bencium-next` can `Glob`/`Grep` (its own hard rule promised them).
+- `CODEX.md` was a raw chat transcript pointing at a `/private/tmp` installer hardcoded to 0.4.0, while `scripts/sync-codex-adapter.mjs` already solved the problem properly. Rewritten as documentation.
+- `INSTALL.md`: hardcoded `0.1.0` cache paths, a chmod step the hook registration makes unnecessary, and a personal absolute path — all removed. New section documenting the two automatic hooks.
+- `.agent-logs/` is gitignored. Session transcripts were one `git add -A` from being published.
 
 ---
 

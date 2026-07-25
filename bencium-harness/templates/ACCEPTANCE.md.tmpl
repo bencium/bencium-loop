@@ -8,6 +8,8 @@ Each check must be **specific, observable, and falsifiable**. No vague items lik
 
 - `- [ ] <check>` — local check. Evaluated by `/bencium-verify` against the working tree.
 - `- [deployed] <check>` — deployed-env check. Skipped by `/bencium-verify` (reason: `awaiting post-deploy smoke`). Re-walked by `/bencium-deploy` Step 5.5 SMOKE against `deploy.url` from `.harness/config.yaml`. A feature is **not shipped** until its `[deployed]` row is checked off against the live URL. Local pass != deployed pass.
+- `- [x] [deployed] <check>` — a deployed-env check that SMOKE has passed. The tag stays after the checkbox on purpose: if the row is ever unchecked again it must come back as `- [ ] [deployed] <check>` and stay deferred, not turn into a local row that `/bencium-verify` would evaluate against the working tree. A row that loses its tag can be falsely confirmed from local state, which is the failure this whole split exists to prevent.
+- A rollback un-checks the `[deployed]` rows the rolled-back deploy had flipped — what was live no longer is.
 
 ## Product checks
 

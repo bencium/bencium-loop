@@ -1,6 +1,6 @@
 ---
 description: Log an architectural decision to .harness/archive/ and surface it in memory
-allowed-tools: Read, Write, Bash
+allowed-tools: Read, Write, Edit, Bash
 argument-hint: "<short title of the decision>"
 ---
 

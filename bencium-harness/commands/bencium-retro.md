@@ -100,23 +100,31 @@ If the rule fires:
    - Exit 0 immediately if not a bencium-harness project (`[ ! -d .harness ] && exit 0`)
    - Project-detect via `.harness/` presence, never run outside harness projects
    - For **warn** behavior: print ANSI yellow `\033[33m` to stderr, exit 0
-   - For **block** behavior: print ANSI red `\033[31m` to stderr, exit 2 (non-zero blocks the tool call when `blocking: true` in settings.json)
-   - No third-party tools; pure bash + grep/awk
+   - For **block** behavior: print ANSI red `\033[31m` to stderr, exit **2**. Exit 2 is what blocks a tool call — stderr becomes the reason shown to the agent. Exit 0 allows; any other exit code is a non-blocking error and execution continues. There is no "blocking" setting; the exit code *is* the decision.
+   - Read the tool input from stdin as JSON when the hook needs the command or file path (`.tool_input.command`, `.tool_input.file_path`). Pure bash + grep/awk — no `jq`, matching the statusline's no-dependency rule.
 3. Show the user the full script body AND the wiring snippet for `<project>/.claude/settings.json`:
    ```json
    {
      "hooks": {
        "PreToolUse": [
          {
-           "matcher": { "tool": "Bash", "pattern": "<regex matching the action class>" },
-           "command": ".harness/hooks/NNNN-<slug>.sh",
-           "blocking": true
+           "matcher": "Bash",
+           "hooks": [
+             {
+               "type": "command",
+               "if": "Bash(<permission-rule pattern, e.g. rm -rf *>)",
+               "command": "${CLAUDE_PROJECT_DIR}/.harness/hooks/NNNN-<slug>.sh",
+               "timeout": 30
+             }
+           ]
          }
        ]
      }
    }
    ```
-   For PostToolUse (e.g., post-commit checks), swap the matcher and set `blocking: false`. The user pastes this into their project's `.claude/settings.json` themselves — the harness never mutates settings.json directly.
+   Three things this schema gets wrong easily: `matcher` filters on the **tool name** only (`"Bash"`, `"Edit|Write"`, or a regex) — it cannot see the command text; narrowing to a particular command is the `if` field, using permission-rule syntax; and the handlers live in a nested `hooks` array where each entry needs `"type": "command"`. Omit `if` to fire on every call to that tool.
+
+   For PostToolUse (e.g., post-commit checks), keep the same shape and change the event name — a warn-only hook simply exits 0. The user pastes this into their project's `.claude/settings.json` themselves — the harness never mutates settings.json directly.
 4. **Ask explicit approval before writing the script file.** Never write it silently.
 5. On approval: write the script to `.harness/hooks/NNNN-<slug>.sh`, run `chmod +x` on it, and append to `.harness/memory.md` under a new `## Hooks added` heading (create if missing):
    ```
@@ -130,7 +138,7 @@ Print the REFLECT banner (magenta) — see `phase-banner` skill:
 
 ```
 \033[35m┌── REFLECT ── learn from this cycle ──┐\033[0m
-🗺️ ▸ 📋 ▸ 🔨 ▸ ✓ ▸ [💭]
+🗺️ ▸ 📋 ▸ 🔨 ▸ ✓ ▸ 🚀 ▸ 🔥 ▸ [💭]
 ```
 
 Then:
@@ -148,7 +156,7 @@ Wrote:        .harness/archive/NNNN-retro-<slug>.md
 Close: `\033[35m└──────────────────────────────────┘\033[0m`
 
 Then render `${CLAUDE_PLUGIN_ROOT}/templates/next-moves.md.tmpl`, filling:
-- `{{phase_progress_strip}}` → `🗺️ ▸ [📋] ▸ 🔨 ▸ ✓ ▸ 💭` (back to planning the fix)
+- `{{phase_progress_strip}}` → `🗺️ ▸ [📋] ▸ 🔨 ▸ ✓ ▸ 🚀 ▸ 🔥 ▸ 💭` (back to planning the fix)
 - `{{verify_reason}}` → `re-run after applying the fix to confirm the failure is gone`
 - `{{top_roadmap_items}}` → first 3 items from `tasks.md ## Roadmap`
 - `{{tail_status}}` → empty
@@ -186,4 +194,4 @@ Rules: each `proposals.*` field is `null` if that vehicle was not used (e.g., no
 - Keep retros to 30-50 lines. Longer means you're writing a report, not a learning.
 - **Never propose a hook for every retro.** The Step 4b decision rule is load-bearing — ACCEPTANCE rows remain the default permanent upgrade vehicle; hooks are reserved for the four classes named (repeated detectable mistakes, destructive ops, env-dependent quirks, explicit user request). If you can't name which of the four applies, the answer is "no hook."
 - **Never mutate the user's `<project>/.claude/settings.json`.** Always show the snippet and let the user paste it. The hook script alone is inert without the wiring.
-- **The Step 5 marker block MUST be the last output.** Nothing after the closing fence — downstream tools locate it as the trailing fenced JSON. Schema version is `1`.
+- **The Step 5 marker block MUST be the last output** — see the `markers` skill.

@@ -20,10 +20,29 @@ A workflow without checkpoints forgets itself — and invisible work becomes inv
 |---|---|---|---|
 | Setup time | ~60 sec | Multi-phase interview | Instant |
 | Memory model | Tiered markdown (`memory.md` + archive) | Heavy generated docs | Static file |
-| Verification gate | `/bencium-verify` against `ACCEPTANCE.md` | — | — |
-| Deploy/rollback | Built-in, refuses on verify fail | — | — |
+| Verification gate | Walks `ACCEPTANCE.md`, evidence required per item | — | — |
+| Deploy/rollback | Deploy blocked by a hook until verify passes | — | — |
+| Enforced by tooling | 3 gates (plan, deploy, deployed rows) | — | — |
 | Infrastructure needed | None | None | None |
 | Survives a context reset | Auto-injected | Re-read manually | Yes |
+
+## What's enforced, and what's asked for
+
+Worth being exact about, because this is where tools like this usually overclaim.
+
+| invariant | how it holds |
+|---|---|
+| Plan approved before any code | **hook** — the edit is blocked |
+| Verify passes before deploy | **hook** — the deploy command is blocked |
+| Deployed rows only ticked after a live check | **hook** — the edit is blocked |
+| Failing test written before the code | asked |
+| Evidence before a check is ticked | asked |
+| No item vanishes from a parallel check | **code**, in the workflow scripts |
+
+The three hooks are Claude Code only. Everywhere else — Codex, opencode, a pasted chat — every
+line in that table is a convention the model follows because the prompt tells it to. That works
+most of the time, and it is not the same thing as being stopped. The distinction matters least on
+a short focused session and most on a long one, which is exactly when you would want the gate.
 
 ## Who it's for
 
@@ -75,23 +94,70 @@ Short answer: describe your idea in the chat, then run `/bencium-init` in the em
 | `/bencium-promote` | Move Roadmap items into Now, or demote stale memory entries to archive. |
 | `/bencium-decide "title"` | Log a technical decision (and why) to `.harness/archive/`. |
 | `/bencium-verify` | Walk `ACCEPTANCE.md` against the actual code. Report pass/fail with evidence. Inspects for gamed tests (weakened or skipped checks) and can delegate a skeptical second opinion to an independent reviewer. |
-| `/bencium-deploy` | Verify → deploy → health check → log. Refuses on verify fail. |
+| `/bencium-deploy` | Verify → deploy → health check → smoke against the live URL → log. A hook blocks the deploy command if verify has not passed. |
 | `/bencium-rollback "reason"` | Run the configured rollback command and log the reason. |
 | `/bencium-retro` | Postmortem after a failure. Proposes memory and acceptance updates. |
+
+## The three gates are enforced, not just asked for
+
+The harness's three loudest promises used to be sentences in a prompt — the agent was asked to
+respect them, and usually did. On Claude Code they are hooks:
+
+- **Plan before code.** While the harness is in the PLAN phase, an attempt to edit a file is
+  refused. The throwaway prototype detour is the one exception, because seeing pixels before
+  committing to a spec is the point of it.
+- **Verify before deploy.** Your configured deploy command is refused unless the last verify
+  came back clean *for the commit you are about to ship*. A stale receipt does not count.
+- **Live check before a deployed row is ticked.** A `[deployed]` row in `ACCEPTANCE.md` can only
+  be ticked while the phase is `smoke`. Un-ticking is always allowed, so a rollback can revert
+  them.
+
+**Tip after installing or updating.** The hook only registers when the plugin loads, so run
+`/plugin update bencium-harness@bencium-harness-local` (or your marketplace name) and restart
+Claude Code. Then prove it actually works, in about a minute.
+
+Make a throwaway repo — nothing here touches any real project:
+
+```bash
+mkdir -p /tmp/gate-check/.harness && cd /tmp/gate-check
+git init -q
+printf 'phase=plan\ntask=gate check\n' > .harness/state
+echo 'x' > hello.txt
+```
+
+Open Claude Code in `/tmp/gate-check` and ask it to edit `hello.txt`. You should get a red
+refusal instead of an edit. Then flip the phase and ask again — this time it goes through:
+
+```bash
+printf 'phase=build\ntask=gate check\n' > .harness/state
+```
+
+Delete it when you're done: `rm -rf /tmp/gate-check`. That refusal is the difference between a
+rule and a request.
+
+If it ever fires when you are *not* mid-plan, the phase is stale — run any `/bencium-*` command,
+or edit `.harness/state`. The message tells you so.
+
+On Codex, opencode, and browser tools there are no hooks, so all three stay advisory: the
+commands still tell the agent to stop, and nothing physically blocks it.
 
 ## Accelerated mode (Claude Code only, opt-in)
 
 The harness runs the same way everywhere: one step at a time, each gated. On **Claude Code**
 there is now an optional faster gear for the slow, repetitive parts. It uses *dynamic workflows* —
 a small program that fans work out across many short-lived helper agents at once instead of walking a
-list one item at a time. Four places can use it, all opt-in:
+list one item at a time. Three places can use it, all opt-in, and **all three only read** — none of
+them writes code:
 
 - **Verify** — check every acceptance item in parallel, then have a *second, skeptical* agent try to
   knock down each pass (catching tests that were quietly weakened to go green).
 - **Deploy smoke test** — hit each deployed check against the live URL at the same time.
 - **Set-up scan** — on a big existing codebase, survey it from several angles at once.
-- **Batch build** — when one task is really N independent, mechanical edits (say a rename across many
-  files), build them side by side, each in its own isolated copy of the repo, each still test-first.
+
+There used to be a fourth — a parallel *build* that split one task across several agents. It has
+since been removed. It made the fast part faster: the slow part of this loop is you reading the
+plan, not the typing. And being the only fan-out that wrote code, it was where most of the bugs lived.
+If a task is really N mechanical edits, split it at the plan gate and do them one at a time.
 
 **Two things to understand about it — this is why it stays optional, never the default:**
 
@@ -188,6 +254,6 @@ that command's file from the repo.
 plan-before-code gate, the acceptance checklist, the decision log, and a memory
 that lives in your repo. You lose the *automatic* parts — context no longer loads
 itself (use the resume prompt), there are no colored phase banners or status bar,
-and nothing physically blocks an out-of-order step; the tool follows the rules
-because the prompt tells it to, not because a plugin enforces it. A first-class
+and the three hooks are gone, so nothing physically blocks an out-of-order
+step — the tool follows the rules because the prompt tells it to. A first-class
 version for these tools is on the roadmap — see the MCP companion idea.

@@ -38,17 +38,9 @@ This adds `bencium-harness-local` to your `~/.claude/plugins/known_marketplaces.
 /plugin install bencium-harness@bencium-harness-local
 ```
 
-That's the one-line install. The plugin is now cached under `~/.claude/plugins/cache/bencium-harness-local/bencium-harness/0.1.0/`.
+That's the one-line install. The plugin is now cached under `~/.claude/plugins/cache/bencium-harness-local/bencium-harness/<VERSION>/` (check the version with `/plugin list`).
 
-### 3. Make the post-commit hook executable
-
-```bash
-chmod +x ~/.claude/plugins/cache/bencium-harness-local/bencium-harness/0.1.0/hooks/post-commit-nag.sh
-```
-
-(Optional — needed only if you want the post-commit nag wired into your global hooks.)
-
-### 4. Restart Claude Code
+### 3. Restart Claude Code
 
 Quit and relaunch. Verify with:
 
@@ -66,7 +58,7 @@ should trigger the 5-question interview.
 
 ## Updating after edits
 
-Edit files directly in `/Users/bencium/benc-harness-source/`, then in Claude Code:
+Edit files directly in your local clone (the path you registered as the marketplace above), then in Claude Code:
 
 ```
 /plugin update bencium-harness@bencium-harness-local
@@ -82,6 +74,24 @@ Restart and re-test.
 ```
 
 Restart Claude Code. (Local-dev installs use `@bencium-harness-local` / `bencium-harness-local` instead.)
+
+## Hooks (automatic)
+
+The plugin registers four hooks in `hooks/hooks.json`. They activate when the plugin is enabled — nothing to paste, nothing to chmod. All four stay completely silent outside a project that has a `.harness/` folder.
+
+Three of them are gates. They are the only places the harness enforces a rule rather than asking for it:
+
+- **Plan gate** (`PreToolUse` on Edit/Write/NotebookEdit) — refuses file edits while `.harness/state` says `phase=plan`. The throwaway prototype paths (`_prototype/`, `.harness/prototype/`) are exempt, since the PROTOTYPE detour is allowed to write before approval.
+- **Deploy gate** (`PreToolUse` on Bash) — refuses your configured `deploy.cmd` unless `.harness/last-verify` shows a clean verify for the commit you are about to ship. Written by `/bencium-verify`; a stale or failing receipt blocks the deploy.
+- **Acceptance gate** (`PreToolUse` on Edit/Write) — refuses to tick a `[deployed]` row in `ACCEPTANCE.md` unless the phase is `smoke`. Un-ticking is always allowed, so a rollback can revert those rows.
+
+The fourth is advisory:
+
+- **Commit nag** (`PostToolUse` on `git commit`) — one yellow line when a commit lands without touching `tasks.md` and `## Now` still has unchecked items. Never blocks.
+
+If the plan gate fires when you are *not* mid-plan, the phase is stale: run any `/bencium-*` command, or edit `.harness/state`.
+
+To disable any of them, use `permissions.deny` in your settings rather than editing the plugin.
 
 ## Statusline (optional)
 
@@ -107,10 +117,12 @@ Restart Claude Code. In any project with a `.harness/` folder you will see a two
 
 ```
 🗺️ ▸ 📋 ▸ [🔨] ▸ ✓ ▸ 🚀 ▸ 🔥 ▸ 💭   todo-app
-"Add CSV export"   5 now · 7/10 ✓   💫 haiku $0.04   ctx 38%
+"Add CSV export"   5 now · 7/10 ✓ · 1/3 🔥   💫 haiku $0.04   ctx 38%
 ```
 
-Row 1 is the phase-progress strip (current phase wrapped in `[ ]`) plus the project name from `.harness/memory.md`. Row 2 is the current task, `## Now` count, ACCEPTANCE ratio, model, session cost, and context-window usage.
+Row 1 is the phase-progress strip (current phase wrapped in `[ ]`) plus the project name from `.harness/memory.md`. Row 2 is the current task, `## Now` count, local ACCEPTANCE ratio (`✓`), deployed-row ratio (`🔥`), model, session cost, and context-window usage.
+
+The two ratios are deliberately separate. `7/10 ✓` is what passes on your machine; `1/3 🔥` is what has been proved against the live URL. Rolling them into one number would let a project look finished while nothing is confirmed deployed. `— 🔥` means the project has no `[deployed]` rows at all — also worth seeing.
 
 Projects without `.harness/` produce no output — your previous statusline, if any, takes over. The script is pure bash + awk + grep, no dependencies, <50ms per render.
 

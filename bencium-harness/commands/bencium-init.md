@@ -41,7 +41,7 @@ If a fourth area genuinely matters for this repo (e.g., infrastructure-as-code, 
 
 ### Accelerated wider sweep (opt-in, Claude Code only)
 
-For a genuinely large repo the 3-agent sweep can leave blind spots. Purely additive — the 3-agent path above stays the default. Use this only when **both** gates hold, else run the 3-agent path: (a) a `Workflow` tool is available (Claude Code only — absent on Codex/opencode/paste; do not emulate with `Task`), and (b) the user opted in. When both hold, invoke the `Workflow` tool with `.claude/workflows/brownfield-scan.mjs` (fall back to `${CLAUDE_PLUGIN_ROOT}/workflows/brownfield-scan.mjs`); it sweeps more lenses in parallel and synthesizes one brief. Use its `summary` in place of the 3-agent synthesis. This is read-only discovery — it changes nothing about the interview or generation that follows.
+For a genuinely large repo the 3-agent sweep can leave blind spots. **Read the `accelerated-mode` skill first** for the two gates; if either is false, run the 3-agent path above. When both hold, invoke the `Workflow` tool with `.claude/workflows/brownfield-scan.mjs` (fall back to `${CLAUDE_PLUGIN_ROOT}/workflows/brownfield-scan.mjs`); it sweeps more lenses in parallel and synthesizes one brief. Use its `summary` in place of the 3-agent synthesis. This is read-only discovery — it changes nothing about the interview or generation that follows.
 
 ### Confirm
 
@@ -76,8 +76,8 @@ Using the 5 answers, generate ALL of these files in one pass. Use the templates 
 
 - `.harness/config.yaml` — deploy.cmd, deploy.health, rollback.cmd (from question 5). Use YAML.
 - `.harness/memory.md` — Hot context. Pre-seed with: project name, killer feature, stack, deploy target, and a line "Initialized $(date -u +%Y-%m-%dT%H:%MZ)". Keep under 50 lines.
-- `.harness/conventions.md` — Code-quality rules. Copy from `${CLAUDE_PLUGIN_ROOT}/templates/conventions.md.tmpl`. Tell the user this file is auto-loaded each session and is where they edit project-specific quality rules (file size cap, shadcn/Tailwind preferences, etc.).
-- `.harness/rules.md` — Empty with a comment: `# Rules — fill in non-negotiables, or run /bencium-import-rules to pull a starter pack.`
+- `.harness/conventions.md` — Code-quality rules. Copy from `${CLAUDE_PLUGIN_ROOT}/templates/conventions.md.tmpl`. Tell the user this file is auto-loaded each session and is where they edit project-specific quality rules (file size cap, stack defaults, project-specific rules).
+- `.harness/rules.md` — Copy from `${CLAUDE_PLUGIN_ROOT}/templates/rules.md.tmpl`. It is a scaffold of non-negotiables for the user to fill in.
 - `.harness/glossary.md` — Empty with a comment: `# Glossary — domain terms used in this project.`
 - `.harness/constraints.md` — Empty with a comment: `# Constraints — hard limits (compliance, performance, budget, etc.).`
 - `.harness/archive/` — Create as empty directory: `mkdir -p .harness/archive`
@@ -85,7 +85,7 @@ Using the 5 answers, generate ALL of these files in one pass. Use the templates 
   ```bash
   printf 'phase=roadmap\ntask=harness initialized\nupdated=%s\n' "$(date -u +%FT%TZ)" > .harness/state
   ```
-  This file is ephemeral session state — recommend adding `.harness/state` to `.gitignore`.
+  Ephemeral session state, and read by the plan gate — recommend adding it and `.harness/last-verify` to `.gitignore`.
 
 **Optional: scaffold the accelerated workflow scripts (Claude Code only).** These power the opt-in workflow paths in `/bencium-verify`, `/bencium-deploy`, and this command's wider sweep. Copy them into the project only when a `Workflow` tool is available (i.e. you are in Claude Code) — on any other runtime skip this, the scripts are inert there and the commands fall back to the plugin copy or the serial path:
 
@@ -110,10 +110,12 @@ bencium-harness initialized ✓
   .harness/         (config, memory, conventions, rules, glossary, constraints, archive)
 
 Build loop:
-  🗺️  roadmap   →  📋 plan/spec   →  🔨 build   →  ✓ test   →  💭 reflect   →  🚀 deploy
-  tasks.md      /bencium-next A    /bencium-next B   /bencium-verify   /bencium-retro   /bencium-deploy
+  🗺️ roadmap  →  📋 plan  →  🔨 build  →  ✓ test  →  🚀 deploy  →  🔥 smoke  →  💭 reflect
+  tasks.md      /bencium-next A  /bencium-next B  /bencium-verify  /bencium-deploy ──┘  /bencium-retro
 
   📋 = mandatory review gate before any code is written. The plan IS the spec.
+  ✓ vs 🔥 = local pass is not a shipped feature. /bencium-deploy re-checks the
+            [deployed] rows against the live URL before anything counts as shipped.
 
 Next: /bencium-next to pick the first task. It will plan first and wait for your approval before coding.
 ```
@@ -125,4 +127,4 @@ Next: /bencium-next to pick the first task. It will plan first and wait for your
 - Do not invent features the user didn't mention.
 - Do not add dependencies, run installs, or modify any source code.
 - **Brownfield discovery uses Explore subagents only on the large-repo path.** Never spawn subagents for greenfield init or a small brownfield repo — they add latency for no signal. The 3-agent cap is hard; trim scope rather than exceed it.
-- **The 3-agent cap governs `Task` subagents.** The accelerated wider sweep and the scaffolded workflow scripts are Claude-Code-only, opt-in escalations — separate from the cap and never automatic. Everything the harness generates works identically without them; they only ever speed the read-only discovery and verification surfaces.
+- **The 3-agent cap governs `Task` subagents.** The accelerated wider sweep and the scaffolded workflow scripts are Claude-Code-only, opt-in escalations — see the `accelerated-mode` skill. Everything the harness generates works identically without them.

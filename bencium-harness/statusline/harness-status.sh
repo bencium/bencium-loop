@@ -67,11 +67,33 @@ if [ -f "$cwd/tasks.md" ]; then
     END                       { print n+0 }
   ' "$cwd/tasks.md")
 fi
-acc_done=0; acc_total=0
+# Local and deployed rows are counted separately and shown separately. A single ratio would
+# hide the deployed gap: 7 local + 3 deployed rows rendered as "7/7 ✓" reads fully green while
+# nothing has been proved against the live URL — the exact false confirmation the TEST/SMOKE
+# split exists to prevent. A row counts as deployed if it carries a [deployed] tag anywhere.
+acc_done=0; acc_total=0; dep_done=0; dep_total=0
 if [ -f "$cwd/ACCEPTANCE.md" ]; then
-  acc_done=$(grep -cE '^- \[x\]' "$cwd/ACCEPTANCE.md" 2>/dev/null || echo 0)
-  acc_open=$(grep -cE '^- \[ \]' "$cwd/ACCEPTANCE.md" 2>/dev/null || echo 0)
-  acc_total=$((acc_done + acc_open))
+  read -r acc_done acc_total dep_done dep_total <<EOF
+$(awk '
+  /^- \[/ {
+    is_done    = /^- \[x\]/
+    is_open    = /^- \[ \]/ || /^- \[deployed\]/
+    if (!is_done && !is_open) next
+    if ($0 ~ /\[deployed\]/) { dep_total++; if (is_done) dep_done++ }
+    else                     { acc_total++; if (is_done) acc_done++ }
+  }
+  END { print acc_done+0, acc_total+0, dep_done+0, dep_total+0 }
+' "$cwd/ACCEPTANCE.md" 2>/dev/null)
+EOF
+  [ -z "${acc_done:-}" ] && { acc_done=0; acc_total=0; dep_done=0; dep_total=0; }
+fi
+
+# No deployed rows at all is itself worth seeing — it means nothing in this project is
+# checked against the live URL — so render "— 🔥" rather than dropping the segment.
+if [ "$dep_total" -gt 0 ]; then
+  smoke_fmt="${dep_done}/${dep_total} 🔥"
+else
+  smoke_fmt="— 🔥"
 fi
 
 # ----- build phase strip with [current] wrapped -----
@@ -103,6 +125,6 @@ model_fmt="${model:-—}"
 # ----- two-row output (always exit 0; render best-effort) -----
 {
   printf '%s   %s%s%s\n' "$strip" "$BOLD" "$project" "$RESET"
-  printf '%s"%s"   %s now · %s/%s ✓   💫 %s %s   ctx %s%s\n' "$DIM" "$task_fmt" "$now_count" "$acc_done" "$acc_total" "$model_fmt" "$cost_fmt" "$ctx_fmt" "$RESET"
+  printf '%s"%s"   %s now · %s/%s ✓ · %s   💫 %s %s   ctx %s%s\n' "$DIM" "$task_fmt" "$now_count" "$acc_done" "$acc_total" "$smoke_fmt" "$model_fmt" "$cost_fmt" "$ctx_fmt" "$RESET"
 } 2>/dev/null
 exit 0

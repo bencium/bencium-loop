@@ -33,7 +33,7 @@ This command does two things depending on what's needed. Ask the user which:
    Next: /bencium-next to plan and build the first promoted item.
    ```
 7. Then render `${CLAUDE_PLUGIN_ROOT}/templates/next-moves.md.tmpl`, filling:
-   - `{{phase_progress_strip}}` → `🗺️ ▸ [📋] ▸ 🔨 ▸ ✓ ▸ 💭` (planning the new slice)
+   - `{{phase_progress_strip}}` → `🗺️ ▸ [📋] ▸ 🔨 ▸ ✓ ▸ 🚀 ▸ 🔥 ▸ 💭` (planning the new slice)
    - `{{verify_reason}}` → `new slice — verify after the first build`
    - `{{top_roadmap_items}}` → remaining `## Roadmap` items (post-promotion), first 3
    - `{{tail_status}}` → `📝 Memory: +1 sprint line appended (already logged above)`

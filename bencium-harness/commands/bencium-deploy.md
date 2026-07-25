@@ -99,7 +99,9 @@ Print the SMOKE banner (bright magenta) — see `phase-banner` skill:
 1. Re-load `ACCEPTANCE.md`.
 2. Collect every unchecked row tagged `[deployed]` (either as the checkbox marker `- [deployed]` or as a trailing `[deployed]` tag). If there are none, print `No [deployed] rows in ACCEPTANCE.md — skipping smoke. Consider adding deployed-env checks (especially for any feature where local pass != deployed pass).` and continue to Step 6.
 
-**Accelerated path (opt-in, Claude Code only).** For a long `[deployed]` list you may fan the walk out — purely additive, the serial walk in step 3 stays the default and the portable path. Use it only when **both** gates hold, else run step 3 serially: (a) a `Workflow` tool is available (Claude Code only — absent on Codex/opencode/paste surfaces; do not emulate with `Task`), and (b) the user opted in this run. When both hold, invoke the `Workflow` tool with `.claude/workflows/smoke-deployed.mjs` (fall back to `${CLAUDE_PLUGIN_ROOT}/workflows/smoke-deployed.mjs`), passing `args: { rows: [{ text }], deployUrl: <deploy.url> }`. Fold the returned `rows` into the step-4 report exactly as if walked serially, and set `mode: "workflow"` + `agents: <count>` in the Step 5.5 marker. Otherwise `mode: "serial"`, `agents: 0`.
+**Accelerated path (opt-in, Claude Code only).** For a long `[deployed]` list you may fan the walk out. **Read the `accelerated-mode` skill first** for the two gates and the guardrails; if either gate is false, run step 3 serially. When both hold, invoke the `Workflow` tool with `.claude/workflows/smoke-deployed.mjs` (fall back to `${CLAUDE_PLUGIN_ROOT}/workflows/smoke-deployed.mjs`), passing `args: { rows: [{ text }], deployUrl: <deploy.url> }`. Fold the returned `rows` into the step-4 report exactly as if walked serially, and set `mode: "workflow"` + `agents: <count>` in the Step 5.5 marker. Otherwise `mode: "serial"`, `agents: 0`.
+
+The workflow returns one row per row you passed in — never fewer. A row it could not evaluate (the agent died or returned nothing) comes back `status: "fail"` with `unverified: true`, and the workflow's own `result` is `fail`. Report those rows as failures: an unverified row is an unproved row, and the whole point of SMOKE is that unproved never counts as shipped. If `unverified` is non-zero, say so in the report — `N row(s) could not be evaluated` — rather than folding them silently into the failure count.
 
 3. For each `[deployed]` row (serial path), evaluate against the live URL (`deploy.url`):
    - Substitute `{{deploy_url}}` in the row text with the configured value.
@@ -128,7 +130,9 @@ Result: 2 PASS, 1 FAIL
    - Close the SMOKE banner: `\033[95m└─────────────────────────────────────┘\033[0m`
    - STOP. Do **not** mark the deploy successful, do **not** check off the rows.
 
-6. **On full PASS**: mark each evaluated `[deployed]` row `[x]` in `ACCEPTANCE.md`. Close the SMOKE banner: `\033[95m└─────────────────────────────────────┘\033[0m`. Continue to Step 6.
+5b. **On any SKIP with no FAIL** (result `partial`): the run is neither shipped nor broken — some row could not be evaluated. Do **not** mark the skipped rows `[x]`; mark only the rows that passed. Print `Smoke partial — N row(s) could not be evaluated against the live URL. Those features are not confirmed shipped.` and name each skipped row with its reason. Continue to Step 6, but the Step 6 banner shows `Smoke: ⚠ partial (N of M rows)` and the Step 6 marker's `smoke_result` is `partial`.
+
+6. **On full PASS**: mark each evaluated `[deployed]` row `[x]` in `ACCEPTANCE.md`, **keeping the tag**: `- [deployed] X` becomes `- [x] [deployed] X`. Never write `- [x] X` — dropping the tag turns the row back into a plain local row, so if it is ever unchecked again `/bencium-verify` would evaluate it locally, which is the false confirmation this whole phase exists to prevent. Close the SMOKE banner: `\033[95m└─────────────────────────────────────┘\033[0m`. Continue to Step 6.
 
 7. **Emit the smoke marker** as the last output of Step 5.5 (after the banner close, before Step 6 begins on either branch — PASS or FAIL):
 
@@ -142,14 +146,15 @@ Result: 2 PASS, 1 FAIL
   "agents": <int>,
   "deploy_url": "<from .harness/config.yaml deploy.url>",
   "deployed_sha": "<git rev-parse HEAD>",
-  "result": "pass" | "fail",
+  "result": "pass" | "partial" | "fail",
+  "unverified": <int>,
   "rows": [
-    { "text": "<row text>", "status": "pass" | "fail", "evidence": "<one-line>" }
+    { "text": "<row text>", "status": "pass" | "fail" | "skip", "evidence": "<one-line>" }
   ]
 }
 ```
 
-Rules: `result` is `pass` only if every row in `rows` is `pass`. Empty `rows` array if no `[deployed]` tags exist (then `result` is `pass` by definition — there was nothing to fail). On the FAIL branch (Step 5.5 step 5), emit the marker after the prose failure summary and before stopping — the marker is the structured record consumers parse. `mode` / `agents` are **optional, additive** fields (schema stays `version: 1`): `mode: "workflow"` + the agent count only when the accelerated path ran, else `mode: "serial"` + `agents: 0`. Consumers that predate them ignore them.
+Rules: `result` is `pass` only if every row in `rows` is `pass`; `partial` if some row is `skip` and none failed; `fail` on any failure. `rows` must contain one entry per `[deployed]` row you set out to walk — a row you could not evaluate is `fail` with the reason as its evidence, never a missing entry. `unverified` counts rows that failed because nothing could be evaluated (dead agent, no response), as distinct from rows that were evaluated and genuinely failed; it is `0` on the serial path unless a check could not be run at all. Empty `rows` array if no `[deployed]` tags exist (then `result` is `pass` by definition — there was nothing to fail). On the FAIL branch (Step 5.5 step 5), emit the marker after the prose failure summary and before stopping — the marker is the structured record consumers parse. `mode` / `agents` are **optional, additive** fields (schema stays `version: 1`): `mode: "workflow"` + the agent count only when the accelerated path ran, else `mode: "serial"` + `agents: 0`. Consumers that predate them ignore them.
 
 ## Step 6: Success
 
@@ -172,7 +177,7 @@ Print with the DEPLOY banner (bright blue) — see `phase-banner` skill:
 \033[94m└───────────────────────────────┘\033[0m
 ```
 
-If there were no `[deployed]` rows to walk, replace the `Smoke:` line with `Smoke:   — (no [deployed] rows in ACCEPTANCE.md)` so the user sees the gap explicitly rather than a phantom ✓.
+If there were no `[deployed]` rows to walk, replace the `Smoke:` line with `Smoke:   — (no [deployed] rows in ACCEPTANCE.md)` so the user sees the gap explicitly rather than a phantom ✓. On a `partial` result, write `Smoke:   ⚠ partial (N of M rows — the rest could not be evaluated)` — again, never a bare ✓.
 
 Then render `${CLAUDE_PLUGIN_ROOT}/templates/next-moves.md.tmpl`, filling:
 - `{{phase_progress_strip}}` → `🗺️ ▸ 📋 ▸ 🔨 ▸ ✓ ▸ 🚀 ▸ 🔥 ▸ [💭]` (smoke done — reflect next, loop complete)
@@ -196,7 +201,7 @@ Emit the deploy marker as the **very last** output, after the next-moves templat
   "target": "<deploy.target from config>",
   "deploy_exit_code": 0,
   "health_check": "pass" | "fail",
-  "smoke_result": "pass" | "fail" | "n/a"
+  "smoke_result": "pass" | "partial" | "fail" | "n/a"
 }
 ```
 
@@ -207,8 +212,8 @@ Emit the deploy marker as the **very last** output, after the next-moves templat
 - Never skip the verify step. The whole point is the gate.
 - Never skip the health check.
 - **Never skip Step 5.5 SMOKE when `[deployed]` rows exist.** A passing health check + skipped smoke is the exact false-confirmation that this command was rewritten to prevent. If `deploy.url` is missing, refuse to deploy (Step 1) rather than deploy without a deployed-env check.
-- **Never mark a `[deployed]` ACCEPTANCE row `[x]` from local state.** Only SMOKE may flip them, and only with live-URL evidence.
+- **Never mark a `[deployed]` ACCEPTANCE row `[x]` from local state.** Only SMOKE may flip them, and only with live-URL evidence. When flipping one, keep the tag (`- [x] [deployed] X`) so the row can never be mistaken for a local check later.
+- **An unevaluated row is a failed row, and zero evaluated rows is a FAIL** — see the `invariants` skill. SMOKE reports what was proved against the live URL; nothing proved means nothing shipped.
 - Never auto-rollback without asking. The user decides whether to roll back or fix forward.
-- **The accelerated SMOKE path is Claude-Code-only and opt-in.** It requires a `Workflow` tool (absent everywhere except Claude Code) and an explicit request; otherwise the serial walk runs unchanged. It is a separate escalation, not bound by the 3-agent cap, and never bypasses a gate — it still evaluates every `[deployed]` row against the live URL and only SMOKE flips those rows.
-- **The smoke and deploy marker blocks MUST be the last output of their respective steps.** Nothing after the closing fence. Downstream consumers locate them as trailing fenced JSON.
-- **Markers report state, not opinion.** Schema version is `1`; future changes bump the integer.
+- **The accelerated SMOKE path is Claude-Code-only and opt-in** — see the `accelerated-mode` skill. It never bypasses the gate: every `[deployed]` row is still evaluated against the live URL, and only SMOKE flips those rows.
+- **The smoke and deploy marker blocks MUST each be the last output of their step** — see the `markers` skill.
