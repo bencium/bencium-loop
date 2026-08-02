@@ -4,7 +4,7 @@
 
 ## The problem
 
-AI agents drift. They forget decisions when the chat is reset. They write code that nobody checks against the original requirements. They ship without verifying, then can't explain why. A blank repo and a clever prompt aren't enough — what's missing is a feedback loop and a memory the agent works *inside*.
+AI agents drift. They forget decisions when the chat is reset. They write code that nobody checks against the original requirements. They ship without verifying, then can't explain why. A blank repo and a clever prompt aren't enough — what's missing is a feedback loop and a memory the agent works *inside*. The names will change, as they always do — the framework, the model, the vendor of the week. The underlying architecture won't.
 
 ## What this is
 
@@ -12,7 +12,7 @@ One command — `/bencium-init` — runs a 5-question interview and produces a c
 
 ## Nothing vanishes
 
-A workflow without checkpoints forgets itself — and invisible work becomes invisible failure. So every boundary in the loop leaves a written trace: each real decision is recorded. Together they're one advantage: you can see exactly what happened, and you can always pick up where you left off.
+A workflow without checkpoints forgets itself — and invisible work becomes invisible failure. So every boundary in the loop leaves a written trace: each real decision is recorded. Together they're one advantage: you can see exactly what happened, and you can always pick up where you left off. The future of AI isn't bigger models — it's persistent, graph-based systems that turn isolated intelligence into something that keeps running. This loop is that idea, scaled down to one repo.
 
 ## How it compares
 
@@ -47,6 +47,8 @@ a short focused session and most on a long one, which is exactly when you would 
 ## Who it's for
 
 Solo builders and small teams using agentic coding tools like codex or opencode on real projects — not throwaway demos. Especially valuable for **regulated or healthcare work** where unverified deploys are not OK, and for any project where you want a paper trail of decisions and a refusal to deploy when acceptance criteria slip.
+
+Gartner still expects 40% of agentic AI projects to be cancelled by 2027 — on security, cost, and evaluation, not model quality. In a regulated industry, a human approval gate isn't a tax on speed; it's the requirement.
 
 ## The 60-second demo
 
