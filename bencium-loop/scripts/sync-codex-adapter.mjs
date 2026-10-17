@@ -13,6 +13,10 @@ const marketplaceRoot = path.join(codexHome, "local-marketplaces", "bencium-loop
 const marketplacePluginRoot = path.join(marketplaceRoot, "plugins", pluginName);
 const configPath = path.join(codexHome, "config.toml");
 
+// Before v0.9.0 the plugin synced as bencium-harness. Left registered, Codex would load both
+// copies and every skill twice, so the old entries are dropped from config.toml on sync.
+const legacyConfigHeaders = ['[plugins."bencium-harness@bencium-harness-local"]', "[marketplaces.bencium-harness-local]"];
+
 const commandDescriptions = {
   "bencium-decide": "Log an architectural decision to .harness/archive/ and surface it in memory.",
   "bencium-deploy": "Verify, deploy, health check, and log. Refuses deploy if /bencium-verify fails.",
@@ -66,9 +70,9 @@ function readdirSorted(dir) {
 }
 
 function commandSkill(commandName, markdown) {
-  const description = commandDescriptions[commandName] || `Run the ${commandName} Bencium Harness workflow.`;
+  const description = commandDescriptions[commandName] || `Run the ${commandName} Bencium Loop workflow.`;
   const body = stripFrontmatter(markdown);
-  return `---\nname: ${commandName}\ndescription: Use when the user asks for \`/${commandName}\`, \`${commandName}\`, or the corresponding Bencium Harness workflow. ${description}\n---\n\n# ${commandName} Codex Adapter\n\nThis skill adapts the local Bencium Harness Claude command for Codex.\n\nOriginal Bencium Harness plugin root:\n\n\`\`\`text\n${sourceRoot}\n\`\`\`\n\nWhen the original command says \`${"${CLAUDE_PLUGIN_ROOT}"}\`, treat it as the path above.\n\nCodex safety translation:\n\n- Follow the active Codex system/developer instructions first.\n- Do not enable or run Claude hooks automatically.\n- If the original command asks for Claude-only tools such as AskUserQuestion, ask inline in Codex unless an equivalent Codex tool is available.\n- If the original command asks for Claude's Task tool or sub-agents, use Codex sub-agents only when explicitly available and appropriate; otherwise do the work locally or ask before delegating.
+  return `---\nname: ${commandName}\ndescription: Use when the user asks for \`/${commandName}\`, \`${commandName}\`, or the corresponding Bencium Loop workflow. ${description}\n---\n\n# ${commandName} Codex Adapter\n\nThis skill adapts the local Bencium Loop Claude command for Codex.\n\nOriginal Bencium Loop plugin root:\n\n\`\`\`text\n${sourceRoot}\n\`\`\`\n\nWhen the original command says \`${"${CLAUDE_PLUGIN_ROOT}"}\`, treat it as the path above.\n\nCodex safety translation:\n\n- Follow the active Codex system/developer instructions first.\n- Do not enable or run Claude hooks automatically.\n- If the original command asks for Claude-only tools such as AskUserQuestion, ask inline in Codex unless an equivalent Codex tool is available.\n- If the original command asks for Claude's Task tool or sub-agents, use Codex sub-agents only when explicitly available and appropriate; otherwise do the work locally or ask before delegating.
 - If the original command offers a Claude Code Workflow path (any step labelled "accelerated", "workflow fan-out", or invoking a \`Workflow\` tool / \`.claude/workflows/*.mjs\` script), ignore it entirely and run the serial path. The Workflow runtime is Claude-Code-only and does not exist in Codex; never emulate it with extra sub-agents.\n- Keep generated loop files in the current project unless the user names another project.\n- Never overwrite existing files without explicit user confirmation.\n- Preserve user/customer data; do not use local-only storage as the durable source of truth for user data.\n- For shell-command workflows, name the trust boundary first when user input, external APIs, uploaded files, webhooks, secrets, or code execution are involved.\n\n## Original Command\n\n${body}\n`;
 }
 
@@ -76,7 +80,7 @@ function helperSkill(sourceSkillName, markdown) {
   const codexName = `bencium-${sourceSkillName}`;
   return markdown
     .replace(/^---\nname:\s*([^\n]+)\n/m, `---\nname: ${codexName}\n`)
-    .replace(/^description:\s*(.+)$/m, (_match, desc) => `description: Bencium Harness helper skill. ${desc}`);
+    .replace(/^description:\s*(.+)$/m, (_match, desc) => `description: Bencium Loop helper skill. ${desc}`);
 }
 
 function copyIfExists(from, to) {
@@ -100,16 +104,14 @@ function writePluginFiles(pluginRoot, manifest, version) {
     version,
     skills: "./skills/",
     interface: {
-      displayName: "Bencium Harness",
+      displayName: "Bencium Loop",
       shortDescription: "Lightweight AI-assisted build loop with roadmap, plan, build, verify, reflect, deploy, and rollback workflows.",
       longDescription:
-        "Codex adapter for the local Bencium Harness Claude plugin. It exposes the /bencium-* workflow commands as Codex skills while leaving the original plugin source untouched.",
+        "Codex adapter for the local Bencium Loop Claude plugin. It exposes the /bencium-* workflow commands as Codex skills while leaving the original plugin source untouched.",
       developerName: "Bencium",
       category: "Coding",
       capabilities: ["Interactive", "Read", "Write"],
       websiteURL: "https://bencium.io",
-      privacyPolicyURL: "https://openai.com/policies/privacy-policy/",
-      termsOfServiceURL: "https://openai.com/policies/terms-of-use/",
       defaultPrompt: ["/bencium-init", "/bencium-feature Add onboarding", "/bencium-next", "/bencium-verify"],
       brandColor: "#0F766E",
       screenshots: [],
@@ -137,7 +139,7 @@ function writeMarketplace() {
   const marketplace = {
     name: marketplaceId,
     interface: {
-      displayName: "Bencium Harness Local",
+      displayName: "Bencium Loop Local",
     },
     plugins: [
       {
@@ -167,16 +169,16 @@ function updateConfig() {
   const backupPath = `${configPath}.bak-before-bencium-loop-sync-${timestamp.replace(/[:.]/g, "-")}`;
   writeFileSync(backupPath, config);
 
-  let next = config;
+  let next = legacyConfigHeaders.reduce(removeTomlTable, config);
   const pluginBlock = `[plugins."${pluginName}@${marketplaceId}"]\nenabled = true\n`;
   if (!next.includes(`[plugins."${pluginName}@${marketplaceId}"]`)) {
     next = `${next.trimEnd()}\n\n${pluginBlock}`;
   }
 
   const marketplaceBlock = `[marketplaces.${marketplaceId}]\nlast_updated = "${timestamp}"\nsource_type = "local"\nsource = "${marketplaceRoot}"\n`;
-  const marketplacePattern = new RegExp(`\\n?\\[marketplaces\\.${marketplaceId}\\]\\n(?:(?!\\n\\[).)*\\n?`, "s");
   if (next.includes(`[marketplaces.${marketplaceId}]`)) {
-    next = next.replace(marketplacePattern, `\n${marketplaceBlock}\n`);
+    next = removeTomlTable(next, `[marketplaces.${marketplaceId}]`);
+    next = `${next.trimEnd()}\n\n${marketplaceBlock}`;
   } else {
     const desktopMarker = "\n[desktop]\n";
     next = next.includes(desktopMarker)
@@ -188,10 +190,19 @@ function updateConfig() {
   return { backupPath, timestamp };
 }
 
+/** Drop one `[table]` and its keys, up to the next table header. */
+function removeTomlTable(toml, header) {
+  const start = toml.indexOf(`${header}\n`);
+  if (start === -1) return toml;
+  const nextHeader = toml.indexOf("\n[", start + header.length);
+  const end = nextHeader === -1 ? toml.length : nextHeader + 1;
+  return `${toml.slice(0, start).trimEnd()}\n\n${toml.slice(end)}`.replace(/^\n+/, "");
+}
+
 function main() {
   const manifestPath = path.join(sourceRoot, ".claude-plugin", "plugin.json");
   if (!existsSync(manifestPath)) {
-    throw new Error(`Run this script from the Bencium Harness source tree. Missing ${manifestPath}`);
+    throw new Error(`Run this script from the Bencium Loop source tree. Missing ${manifestPath}`);
   }
 
   const manifest = readJson(manifestPath);
