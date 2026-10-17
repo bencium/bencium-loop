@@ -33,10 +33,10 @@ Record TEST phase for the statusline (pre-deploy verify is the local TEST step):
 
 Run `/bencium-verify` (call its logic — load ACCEPTANCE.md and walk it).
 
-If ANY check FAILs:
+If the result is `fail` or `partial` (a skipped check is an unproved check, and the deploy gate refuses both):
 
-- Print the failure summary
-- Print: `Deploy refused. Fix failures or run /bencium-retro.`
+- Print the failure summary, naming each failed or skipped row
+- Print: `Deploy refused. Fix failures or skips, or run /bencium-retro.`
 - STOP. Do not run the deploy command.
 
 If verify passes, continue.

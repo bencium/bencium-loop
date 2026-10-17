@@ -109,7 +109,8 @@ respect them, and usually did. On Claude Code they are hooks:
   refused. The throwaway prototype detour is the one exception, because seeing pixels before
   committing to a spec is the point of it.
 - **Verify before deploy.** Your configured deploy command is refused unless the last verify
-  came back clean *for the commit you are about to ship*. A stale receipt does not count.
+  came back clean *for the exact code you are about to ship*: same commit, no edits since. A stale
+  receipt does not count.
 - **Live check before a deployed row is ticked.** A `[deployed]` row in `ACCEPTANCE.md` can only
   be ticked while the phase is `smoke`. Un-ticking is always allowed, so a rollback can revert
   them.

@@ -162,10 +162,10 @@ Put `/bencium-deploy` at the top of the rendered output and tell the user the ga
 Whatever the result, record it so the deploy gate can read it:
 
 ```bash
-[ -d .harness ] && printf 'result=%s\nsha=%s\nts=%s\n' "<pass|partial|fail>" "$(git rev-parse HEAD 2>/dev/null || echo unknown)" "$(date -u +%FT%TZ)" > .harness/last-verify
+[ -d .harness ] && printf 'result=%s\nsha=%s\ntree=%s\nts=%s\n' "<pass|partial|fail>" "$(git rev-parse HEAD 2>/dev/null || echo unknown)" "$( { git diff HEAD -- . ':(exclude).harness'; git ls-files --others --exclude-standard -- . ':(exclude).harness'; } 2>/dev/null | git hash-object --stdin 2>/dev/null)" "$(date -u +%FT%TZ)" > .harness/last-verify
 ```
 
-This is not bookkeeping — on Claude Code `deploy-gate.sh` reads it and refuses the deploy command unless `result=pass` and `sha` matches the current HEAD. A `fail` receipt is as important as a `pass` one: writing nothing would leave the previous run's verdict standing while the code has moved on. Recommend adding `.harness/last-verify` to `.gitignore` alongside `.harness/state`.
+This is not bookkeeping — on Claude Code `deploy-gate.sh` reads it and refuses the deploy command unless `result=pass`, `sha` matches the current HEAD, and `tree` (a fingerprint of uncommitted changes outside `.harness/`) still matches. Run this line exactly as written — the gate recomputes `tree` the same way. A `fail` receipt is as important as a `pass` one: writing nothing would leave the previous run's verdict standing while the code has moved on. Recommend adding `.harness/last-verify` to `.gitignore` alongside `.harness/state`.
 
 ## Step 7: Memory confirmation
 

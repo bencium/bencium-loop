@@ -11,6 +11,17 @@ Theme vocabulary (pick one when cutting a release):
 
 Answers three structural criticisms that survived the v0.8.0 bug fix — they were about what the loop *is*, not about defects. Theme when cut: **Anchor**.
 
+### Fixed — the gates themselves
+
+A review of the three gates found that two of them blocked legitimate work, and one did nothing at all for the most common deploy commands. None of this had tests; now all three do (`tests/hooks.test.mjs`, 20 cases, run against a throwaway repo).
+
+- **Deploy gate never fired for short deploy commands.** The rendered template puts a comment after the value (`cmd: "fly deploy"   # full command…`), and the parser kept a stray closing quote, so it waited for `fly deploy"` and let `fly deploy` straight through. Any 1–2 word command (`fly deploy`, `npm publish`, `vercel --prod`) was ungated.
+- **Deploy gate blocked unrelated commands.** It matched on the first two words, so `deploy.cmd: npm run deploy` also refused `npm run test` — which could stop `/bencium-verify` from ever passing, and so block the deploy for good. It now matches the whole configured command, and still recognises it when chained (`cd app && fly deploy`), prefixed (`TOKEN=… fly deploy`) or re-spaced.
+- **Deploy gate ignored edits made after verify.** The receipt now carries `tree=`, a fingerprint of uncommitted changes outside `.harness/`, and the gate refuses if it no longer matches. Receipts written before this change have no `tree=`, so run `/bencium-verify` once more before the next deploy.
+- **`/bencium-deploy` carried on after a partial verify, straight into the gate's refusal.** Step 2 now stops on `partial` as well as `fail`: a skipped check is an unproved check.
+- **Acceptance gate blocked un-ticking.** It searched the whole edit, including the text being replaced, so `/bencium-rollback` un-checking a `[deployed]` row was refused — as was `/bencium-init` writing a fresh `ACCEPTANCE.md` (the template's legend quotes the pattern), and any rewrite of a file that already had a ticked row. It now compares ticked `[deployed]` rows before and after, and blocks only when the count goes up. This needs `node` on PATH (already required for the workflows); without it the gate refuses edits to `ACCEPTANCE.md` rather than guessing.
+- **Codex sync** still said "Bencium Harness" after the rename, pointed its privacy/terms links at openai.com, and left the old `bencium-harness` plugin registered, so Codex would load every skill twice. Sync now removes the old entries from `config.toml` (after the existing backup) and no longer adds a blank line on every run.
+
 ### Changed — renamed from `bencium-harness` to `bencium-loop` (v0.9.0)
 
 The project always described itself as a loop — "six-phase loop", "a build loop that no vendor can switch off" — while calling itself a harness. "Harness" is a term of art that only parses for people already deep in agent tooling; "loop" explains itself and is the word the docs were already using to do the actual work.

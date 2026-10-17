@@ -82,7 +82,7 @@ The plugin registers four hooks in `hooks/hooks.json`. They activate when the pl
 Three of them are gates. They are the only places the loop enforces a rule rather than asking for it:
 
 - **Plan gate** (`PreToolUse` on Edit/Write/NotebookEdit) — refuses file edits while `.harness/state` says `phase=plan`. The throwaway prototype paths (`_prototype/`, `.harness/prototype/`) are exempt, since the PROTOTYPE detour is allowed to write before approval.
-- **Deploy gate** (`PreToolUse` on Bash) — refuses your configured `deploy.cmd` unless `.harness/last-verify` shows a clean verify for the commit you are about to ship. Written by `/bencium-verify`; a stale or failing receipt blocks the deploy.
+- **Deploy gate** (`PreToolUse` on Bash) — refuses your configured `deploy.cmd` unless `.harness/last-verify` shows a clean verify for the commit *and* the uncommitted changes you are about to ship. Written by `/bencium-verify`; a stale, failing or partial receipt blocks the deploy. It recognises the command when chained (`cd app && fly deploy`) or prefixed (`TOKEN=… fly deploy`), but not when a script, Makefile target or alias runs it for you.
 - **Acceptance gate** (`PreToolUse` on Edit/Write) — refuses to tick a `[deployed]` row in `ACCEPTANCE.md` unless the phase is `smoke`. Un-ticking is always allowed, so a rollback can revert those rows.
 
 The fourth is advisory:
