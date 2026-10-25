@@ -28,15 +28,15 @@ const BUDGET = {
   "bencium-decide.md": { lines: 81, rules: 0 },
   "bencium-deploy.md": { lines: 219, rules: 8 },
   "bencium-feature.md": { lines: 54, rules: 2 },
-  "bencium-init.md": { lines: 130, rules: 6 },
-  "bencium-next.md": { lines: 274, rules: 9 },
+  "bencium-init.md": { lines: 131, rules: 6 },     // +1: offers measurement setup
+  "bencium-next.md": { lines: 281, rules: 9 },     // +7: offers measured findings, Journey field
   "bencium-promote.md": { lines: 62, rules: 3 },
   "bencium-retro.md": { lines: 197, rules: 6 },
   "bencium-rollback.md": { lines: 127, rules: 5 },
-  "bencium-verify.md": { lines: 233, rules: 8 },  // +10: Step 6.5 writes the verify receipt the deploy gate reads
+  "bencium-verify.md": { lines: 244, rules: 8 },  // +10: verify receipt; +11: Step 2.5 measurement
 };
 
-const FLEET_BUDGET = { lines: 1377, rules: 47 };
+const FLEET_BUDGET = { lines: 1396, rules: 47 };  // +19 for measurement, no new hard rules
 
 const countLines = (src) => src.split("\n").length - 1;
 

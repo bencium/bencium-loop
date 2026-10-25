@@ -81,6 +81,7 @@ Using the 5 answers, generate ALL of these files in one pass. Use the templates 
 - `.harness/glossary.md` — Empty with a comment: `# Glossary — domain terms used in this project.`
 - `.harness/constraints.md` — Empty with a comment: `# Constraints — hard limits (compliance, performance, budget, etc.).`
 - `.harness/archive/` — Create as empty directory: `mkdir -p .harness/archive`
+- **Measurement (web UI projects only).** If the stack has a web UI, ask: `Measure page speed, accessibility and timed user journeys on every verify? Needs a ~100MB browser download, once per machine.` On yes, follow the Setup section of the `measure` skill, filling `{{local_url}}` and `{{serve_cmd}}` (a production build where possible) in `measure.json`. On no, or no web UI, skip it — `/bencium-verify` will report `Measurement: not configured`.
 - `.harness/state` — Single-line phase state for the optional statusline. Write:
   ```bash
   printf 'phase=roadmap\ntask=harness initialized\nupdated=%s\n' "$(date -u +%FT%TZ)" > .harness/state

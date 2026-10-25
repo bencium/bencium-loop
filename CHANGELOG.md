@@ -11,6 +11,17 @@ Theme vocabulary (pick one when cutting a release):
 
 Answers three structural criticisms that survived the v0.8.0 bug fix — they were about what the loop *is*, not about defects. Theme when cut: **Anchor**.
 
+### Added — measured performance and usability
+
+The loop said what "done" means; nothing said what "good" means. `/bencium-verify` now measures it, for projects with a web UI that opt in at `/bencium-init`:
+
+- **Speed and accessibility per page.** A real browser (Playwright) loads each configured page three times from a cold cache, with the CPU slowed 4×. It records time to first and largest content, layout shift, blocking time (approximate), JavaScript size, requests and console errors, and runs an accessibility scan (axe-core) counting failing elements by severity.
+- **Timed user journeys.** Short per-project scripts in `.harness/journeys/`, timed step by step and judged on total time and step count. `/bencium-next` now asks for one in the plan whenever a task changes a user flow.
+- **Budgets fail, drift warns.** Over budget, a broken journey, or anything that could not be measured is a verify FAIL, so the deploy gate refuses. Worse than the last run but inside budget is a warning. Default budgets are Google's published "good" thresholds (LCP 2.5s, FCP 1.8s, CLS 0.1, TBT 200ms, checked on web.dev).
+- **History and next steps.** One line per run in `.harness/metrics.jsonl` (committed). `/bencium-next` offers the worst finding as a task, and the statusline shows `📏 ✓ / ⚠ n / ✗ n`.
+
+The numbers come from the developer's machine, not real users, and every report says so. The tools are installed in `.harness/measure/`, kept apart from the project's own dependencies. Command budgets raised on purpose: verify +11 lines, next +7, init +1, no new hard rules. New tests: `measure-judge` (16 cases) and `measure-runner` (5 cases, real browser, skipped visibly without Playwright).
+
 ### Fixed — the gates themselves
 
 A review of the three gates found that two of them blocked legitimate work, and one did nothing at all for the most common deploy commands. None of this had tests; now all three do (`tests/hooks.test.mjs`, 20 cases, run against a throwaway repo).

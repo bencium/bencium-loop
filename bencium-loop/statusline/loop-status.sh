@@ -96,6 +96,19 @@ else
   smoke_fmt="— 🔥"
 fi
 
+# ----- last measurement from .harness/metrics.jsonl: 📏 ✓ / 📏 ⚠ 2 / 📏 ✗ 1 -----
+# Hidden entirely when measurement is not set up, so projects without a UI see no new segment.
+measure_fmt=""
+if [ -f "$cwd/.harness/metrics.jsonl" ]; then
+  last_run=$(tail -n 1 "$cwd/.harness/metrics.jsonl" 2>/dev/null)
+  fails=$(printf '%s' "$last_run" | grep -o '"level":"fail"' | wc -l | tr -d ' ')
+  warns=$(printf '%s' "$last_run" | grep -o '"level":"warn"' | wc -l | tr -d ' ')
+  if [ "${fails:-0}" -gt 0 ]; then measure_fmt=" · 📏 ✗ ${fails}"
+  elif [ "${warns:-0}" -gt 0 ]; then measure_fmt=" · 📏 ⚠ ${warns}"
+  else measure_fmt=" · 📏 ✓"
+  fi
+fi
+
 # ----- build phase strip with [current] wrapped -----
 strip_phase() {
   # $1 = phase key, $2 = emoji. If matches current $phase, wrap [..].
@@ -125,6 +138,6 @@ model_fmt="${model:-—}"
 # ----- two-row output (always exit 0; render best-effort) -----
 {
   printf '%s   %s%s%s\n' "$strip" "$BOLD" "$project" "$RESET"
-  printf '%s"%s"   %s now · %s/%s ✓ · %s   💫 %s %s   ctx %s%s\n' "$DIM" "$task_fmt" "$now_count" "$acc_done" "$acc_total" "$smoke_fmt" "$model_fmt" "$cost_fmt" "$ctx_fmt" "$RESET"
+  printf '%s"%s"   %s now · %s/%s ✓ · %s%s   💫 %s %s   ctx %s%s\n' "$DIM" "$task_fmt" "$now_count" "$acc_done" "$acc_total" "$smoke_fmt" "$measure_fmt" "$model_fmt" "$cost_fmt" "$ctx_fmt" "$RESET"
 } 2>/dev/null
 exit 0

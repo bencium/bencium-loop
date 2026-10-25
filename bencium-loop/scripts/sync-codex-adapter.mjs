@@ -98,6 +98,7 @@ function writePluginFiles(pluginRoot, manifest, version) {
   copyIfExists(path.join(sourceRoot, "templates"), path.join(pluginRoot, "templates"));
   copyIfExists(path.join(sourceRoot, "hooks"), path.join(pluginRoot, "hooks"));
   copyIfExists(path.join(sourceRoot, "statusline"), path.join(pluginRoot, "statusline"));
+  copyIfExists(path.join(sourceRoot, "measure"), path.join(pluginRoot, "measure"));
 
   const codexManifest = {
     ...manifest,

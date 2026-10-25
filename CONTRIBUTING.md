@@ -6,7 +6,16 @@
 node --test "tests/*.test.mjs"
 ```
 
-No dependencies, no install step. Two suites:
+No dependencies, no install step. The browser tests for measurement
+(`tests/measure-runner.test.mjs`) skip with a visible reason unless you point them at Playwright:
+
+```bash
+mkdir -p /tmp/bencium-measure-deps && cp bencium-loop/measure/package.json /tmp/bencium-measure-deps/
+npm install --prefix /tmp/bencium-measure-deps && npx --prefix /tmp/bencium-measure-deps playwright install chromium
+BENCIUM_MEASURE_DEPS=/tmp/bencium-measure-deps/node_modules node --test "tests/*.test.mjs"
+```
+
+Run them before changing anything under `bencium-loop/measure/`. Two suites:
 
 - **Workflow behaviour** — drives each script in `bencium-loop/workflows/` with fake agents that
   reproduce the runtime's real failure mode (an agent that dies returns `null`). The cases exist

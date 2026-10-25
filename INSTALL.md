@@ -93,6 +93,22 @@ If the plan gate fires when you are *not* mid-plan, the phase is stale: run any 
 
 To disable any of them, use `permissions.deny` in your settings rather than editing the plugin.
 
+## Measurement (optional, web UI projects)
+
+`/bencium-init` offers it. To add it to an existing project, from the project root:
+
+```bash
+mkdir -p .harness/measure .harness/journeys
+cp "<plugin root>/measure/"{measure.mjs,judge.mjs,package.json} .harness/measure/
+cp "<plugin root>/templates/measure.json.tmpl" .harness/measure.json   # then edit url, serve, pages
+npm install --prefix .harness/measure
+npx --prefix .harness/measure playwright install chromium               # ~100MB, once per machine
+echo ".harness/measure/node_modules/" >> .gitignore
+```
+
+Check it with `node .harness/measure/measure.mjs`. Commit `.harness/measure.json`, `.harness/journeys/`
+and `.harness/metrics.jsonl`. The tools sit in their own folder, so this works whatever your stack is.
+
 ## Statusline (optional)
 
 The plugin ships a statusline script at `statusline/loop-status.sh`. Claude Code plugins cannot register a statusline declaratively, so wire it into your own `~/.claude/settings.json`:

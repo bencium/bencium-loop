@@ -1,0 +1,10 @@
+{
+  "name": "bencium-loop-measure",
+  "private": true,
+  "description": "Installed into .harness/measure/ by /bencium-init. Kept apart from the project's own dependencies so measurement works for any stack.",
+  "type": "module",
+  "dependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "playwright": "1.64.1"
+  }
+}

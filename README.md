@@ -144,6 +144,28 @@ or edit `.harness/state`. The message tells you so.
 On Codex, opencode, and browser tools there are no hooks, so all three stay advisory: the
 commands still tell the agent to stop, and nothing physically blocks it.
 
+## Measured, not just checked (web UI projects, opt-in)
+
+`ACCEPTANCE.md` says what *done* means, in yes/no checks. Measurement says what *good* means, in
+numbers the agent can see and improve against. Every `/bencium-verify` loads your pages in a real
+browser and records:
+
+- **Speed** — how long until the main content appears, how much the layout jumps, how long the
+  page is too busy to respond, how much JavaScript it downloads.
+- **Accessibility** — every element failing an accessibility rule, by severity (axe-core).
+- **Timed user journeys** — short scripts for the flows users actually take ("sign up and create
+  a first item"), timed step by step. `/bencium-next` asks for one whenever a task changes a flow,
+  so they build up as the product does.
+
+Going over a budget fails verify, so the deploy gate refuses the deploy. Getting worse while still
+inside budget shows as a warning with the trend. Every run adds one line to
+`.harness/metrics.jsonl`, so you can see which commit made things slower, and `/bencium-next`
+offers the worst number as the next task.
+
+The default budgets are Google's published "good" thresholds. One honest limit: **the numbers come
+from your machine, not from your users.** The browser slows its CPU to narrow that gap; it does
+not close it. `/bencium-init` offers to set this up (about a 100MB browser download, once).
+
 ## Accelerated mode (Claude Code only, opt-in)
 
 The loop runs the same way everywhere: one step at a time, each gated. On **Claude Code**

@@ -22,6 +22,8 @@ From the `## Now` section, find the first unchecked task (`- [ ]`). If `## Now` 
 - Suggest: `/bencium-verify` (if anything was just completed), `/bencium-promote` (to move Roadmap → Now), or `/bencium-feature` (to add new work).
 - STOP.
 
+**Measured findings.** If `.harness/metrics.jsonl` exists and its last line has findings, offer the worst one — a fail before any warn — alongside the picked task, e.g. `📏 Last measurement: /login has 2 serious accessibility issues (budget 0). Reply 'measure' to fix that first, or continue with the task above.` On `measure`, add it to the top of `## Now` and pick it. See the `measure` skill. Never switch tasks without the user's reply.
+
 ## Step 2.5: PROTOTYPE detour (optional — UI tasks only)
 
 This is the **one** place `/bencium-next` may write files before the PLAN gate — and it writes **only throwaway prototype code** to a disposable location, never real source. PLAN (Step 3) stays 100% read-only. The detour exists so you can eyeball look-and-feel *before* committing to a spec, then fold the chosen direction back into the plan. Phase styling: PROTOTYPE (orange / 🎨) in the `phase-banner` skill.
@@ -132,6 +134,11 @@ Deployed-env check (smoke):
   (If the task touches any code path that runs on the deployed env — network, env vars,
    build pipeline, runtime — a `[deployed]` row in ACCEPTANCE.md is required. Local
    pass does not ship the feature.)
+
+Journey (timed):
+  - <.harness/journeys/<name>.mjs this task adds or updates, or "none — no user-facing flow change">
+  (Only when .harness/measure.json exists. A new or changed user flow gets a timed journey —
+   see the measure skill. BUILD writes it alongside the failing test.)
 ```
 
 Close the banner:

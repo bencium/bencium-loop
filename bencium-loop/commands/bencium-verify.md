@@ -25,6 +25,10 @@ Run each command in `verify.cmd` sequentially via Bash. Capture exit code + last
 
 Examples of typical commands users may have configured: `npm test -- --run`, `npm run typecheck`, `npm run build`, custom smoke scripts.
 
+## Step 2.5: Measure performance and usability (if configured)
+
+If `.harness/measure.json` exists, run `node .harness/measure/measure.mjs` from the project root and read its last line (`BENCIUM_MEASURE {...}`). **Read the `measure` skill first** for what it measures and how it judges. `fail` (exit 1) is a FAIL like any hard check, with the failing findings as evidence; `warn` is listed in the report and does not change the result. With no config, the report says `Measurement: not configured` — never leave the line out.
+
 ## Step 3: Soft checks (walk ACCEPTANCE.md — local only)
 
 For EACH unchecked item in `ACCEPTANCE.md`:
@@ -104,6 +108,11 @@ Then a structured report. Show **deployed-env checks as a separate block** so th
 Hard checks:
   ✓ tests        (npm test -- --run, 0)
   ✗ typecheck    (npm run typecheck, 2 errors in src/api.ts:42, src/db.ts:88)
+
+Measurement (this machine, not real users — see measure skill):
+  ✗ /login — a11y_serious 2 is over budget 0 (label ×2)
+  ⚠ / — lcp_ms 1400ms, was 1000ms last run (+40%)
+  ✓ journey signup 3.2s · 5 steps
 
 Soft checks — local (ACCEPTANCE.md):
   ✓ All list endpoints paginated
@@ -194,6 +203,7 @@ Schema:
   "mode": "serial" | "workflow",
   "agents": <int>,
   "result": "pass" | "fail" | "partial",
+  "measurement": { "result": "pass" | "warn" | "fail" | "skip", "fails": <int>, "warns": <int> },
   "hard_checks": [
     { "name": "<verify.cmd entry>", "status": "pass" | "fail", "evidence": "<one-line>", "exit_code": <int> }
   ],
@@ -214,6 +224,7 @@ Schema:
 
 Rules for populating:
 
+- `measurement` copies the `BENCIUM_MEASURE` line's counts (optional, additive; `skip` when not configured). A measurement `fail` makes `result` `fail`.
 - `result` is `pass` only if every hard check passes AND every local soft check is `pass`. Any `fail` → `fail`. All `pass` with any `skip` → `partial`. `deferred_to_smoke` entries do NOT count toward the result (they are evaluated by `/bencium-deploy` SMOKE).
 - `unverified` is the subset of `fail` rows that failed because nothing could be evaluated (dead agent, unrun skeptic) rather than because the check genuinely did not hold. It is `0` on the serial path. `items` must contain one entry per row you set out to walk — a row you could not evaluate is `fail` with the reason as its evidence, never a missing entry.
 - `evidence` strings come from the same prose report in Step 4 — one line each, no markdown.

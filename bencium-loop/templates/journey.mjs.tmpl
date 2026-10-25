@@ -1,0 +1,16 @@
+// Timed user journey: {{journey_name}}
+// Run by /bencium-verify through .harness/measure/measure.mjs. Each step() is timed and counted;
+// the whole journey is judged against max_ms and max_steps in .harness/measure.json.
+// A step that throws — a button that is not there, a page that never loads — fails the journey.
+//
+// `page` is a Playwright page: https://playwright.dev/docs/api/class-page
+
+export default async function journey({ page, step, baseUrl }) {
+  await step("open the start page", () => page.goto(`${baseUrl}/`));
+  await step("do the first thing a user does", async () => {
+    // e.g. await page.getByLabel("Email").fill("test@example.com");
+  });
+  await step("see the result the user came for", async () => {
+    // e.g. await page.getByRole("heading", { name: "Welcome" }).waitFor();
+  });
+}
